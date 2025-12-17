@@ -104,14 +104,14 @@ const ProjectManager = {
                     <span class="dropdown-item-meta">${this.formatDate(project.createdAt)}</span>
                 </div>
                 <div class="dropdown-item-actions">
-                    <button class="dropdown-item-rename" data-id="${project.id}" title="Rename project">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <button class="dropdown-item-action dropdown-item-rename" data-id="${project.id}" data-name="${this.escapeHtml(project.name)}" title="Rename project">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                         </svg>
                     </button>
-                    <button class="dropdown-item-delete" data-id="${project.id}" title="Delete project">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <button class="dropdown-item-action dropdown-item-delete" data-id="${project.id}" title="Delete project">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"></polyline>
                             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                         </svg>
@@ -192,6 +192,35 @@ const ProjectManager = {
         VideoHandler.currentProjectId = null;
         
         this.closeDropdown();
+    },
+
+    /**
+     * Rename a project
+     * @param {number} projectId
+     */
+    async renameProject(projectId) {
+        const project = await Storage.getProject(projectId);
+        const newName = prompt('Enter new project name:', project.name);
+        
+        if (!newName || newName.trim() === '') {
+            return;
+        }
+
+        if (newName === project.name) {
+            return;
+        }
+
+        // Update in storage
+        await Storage.updateProject(projectId, { name: newName.trim() });
+
+        // If we renamed the current project, update the header
+        if (projectId === VideoHandler.currentProjectId) {
+            this.setProjectName(newName.trim());
+        }
+
+        // Refresh list
+        this.loadProjectList();
+        App.showToast('Project renamed', 'success');
     },
 
     /**

@@ -319,9 +319,10 @@ body {
     opacity: 1;
 }
 
-.dropdown-item-rename,
-.dropdown-item-delete {
-    padding: 6px;
+.dropdown-item-action {
+    width: 28px;
+    height: 28px;
+    padding: 0;
     background: transparent;
     border: none;
     color: var(--text-muted);
@@ -331,6 +332,11 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.dropdown-item-action svg {
+    width: 16px;
+    height: 16px;
 }
 
 .dropdown-item-rename:hover {
