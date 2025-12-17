@@ -14,12 +14,10 @@ const App = {
         DrawingTool.init();
         TagManager.init();
         PDFExporter.init();
+        ProjectSharing.init();
 
         // Set up keyboard shortcuts
         this.setupKeyboardShortcuts();
-
-        // Set up project loading
-        this.setupProjectLoader();
 
         console.log('Video Markup initialized');
     },
@@ -102,45 +100,6 @@ const App = {
                             DrawingTool.undo();
                         }
                         break;
-                }
-            }
-        });
-    },
-
-    /**
-     * Set up project loader dialog
-     */
-    setupProjectLoader() {
-        const loadBtn = document.getElementById('loadProjectBtn');
-        
-        loadBtn.addEventListener('click', async () => {
-            const projects = await Storage.getAllProjects();
-            
-            if (projects.length === 0) {
-                this.showToast('No saved projects found', 'info');
-                return;
-            }
-
-            // Create a simple project selection dialog
-            const projectList = projects.map(p => 
-                `${p.name} (${new Date(p.createdAt).toLocaleDateString()})`
-            ).join('\n');
-
-            const choice = prompt(
-                `Select project number to load:\n\n${projects.map((p, i) => 
-                    `${i + 1}. ${p.name}`
-                ).join('\n')}\n\nEnter number:`
-            );
-
-            if (choice) {
-                const index = parseInt(choice) - 1;
-                if (index >= 0 && index < projects.length) {
-                    // Clear current snapshots
-                    SnapshotManager.clearList();
-                    
-                    // Load selected project
-                    await VideoHandler.loadProject(projects[index].id);
-                    this.showToast(`Loaded: ${projects[index].name}`, 'success');
                 }
             }
         });

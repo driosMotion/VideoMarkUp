@@ -120,6 +120,15 @@ Each tag can have an hour estimate for staffing/resource planning. When you sele
 - Dark theme styling
 - Auto-generated filename with date
 
+### Project Sharing (Import/Export)
+- **Share button**: Export current project as a `.zip` file
+  - Includes video file, all snapshots, drawings, comments, tags, hours
+  - Can be sent to another user
+- **Import button**: Load a shared `.zip` project file
+  - Restores the full project with all data
+  - Video, snapshots, markups, and metadata preserved
+- Uses JSZip library for compression
+
 ## Keyboard Shortcuts
 
 ### Global (when video loaded)

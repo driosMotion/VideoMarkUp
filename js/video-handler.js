@@ -125,6 +125,7 @@ const VideoHandler = {
         document.getElementById('uploadArea').hidden = true;
         document.getElementById('videoPlayerContainer').hidden = false;
         document.getElementById('exportPdfBtn').disabled = false;
+        document.getElementById('exportProjectBtn').disabled = false;
 
         App.showToast(`Loaded: ${file.name}`, 'success');
     },
@@ -151,6 +152,7 @@ const VideoHandler = {
         document.getElementById('uploadArea').hidden = true;
         document.getElementById('videoPlayerContainer').hidden = false;
         document.getElementById('exportPdfBtn').disabled = false;
+        document.getElementById('exportProjectBtn').disabled = false;
 
         // Wait for video metadata before loading snapshots (need duration for markers)
         this.video.addEventListener('loadedmetadata', async () => {
