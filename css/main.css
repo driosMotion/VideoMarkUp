@@ -308,19 +308,34 @@ body {
     color: var(--text-muted);
 }
 
+.dropdown-item-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    opacity: 0.5;
+    transition: all var(--transition-fast);
+}
+
+.dropdown-item:hover .dropdown-item-actions {
+    opacity: 1;
+}
+
+.dropdown-item-rename,
 .dropdown-item-delete {
-    padding: var(--spacing-xs);
+    padding: 6px;
     background: transparent;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
     border-radius: var(--radius-sm);
-    opacity: 0;
     transition: all var(--transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.dropdown-item:hover .dropdown-item-delete {
-    opacity: 1;
+.dropdown-item-rename:hover {
+    background: var(--accent-primary);
+    color: white;
 }
 
 .dropdown-item-delete:hover {
