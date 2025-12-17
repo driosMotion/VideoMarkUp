@@ -6,7 +6,6 @@
 const SnapshotManager = {
     snapshots: [],
     currentSnapshotId: null,
-    currentCommentColor: '#f0f0f2',
 
     /**
      * Initialize snapshot manager
@@ -31,13 +30,10 @@ const SnapshotManager = {
         saveBtn.addEventListener('click', () => this.saveAndClose());
         deleteBtn.addEventListener('click', () => this.deleteCurrentSnapshot());
 
-        // Comment color picker
+        // Comment color picker - apply to selected text
         document.querySelectorAll('.comment-color-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.comment-color-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.currentCommentColor = btn.dataset.color;
-                commentInput.style.color = this.currentCommentColor;
+                this.applyColorToSelection(btn.dataset.color);
             });
         });
 
@@ -54,6 +50,44 @@ const SnapshotManager = {
                 this.closeModal();
             }
         });
+    },
+
+    /**
+     * Apply color to selected text in comment
+     * @param {string} color - Hex color code
+     */
+    applyColorToSelection(color) {
+        const commentInput = document.getElementById('commentInput');
+        commentInput.focus();
+        
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        
+        const range = selection.getRangeAt(0);
+        
+        // If no text is selected, do nothing
+        if (range.collapsed) {
+            return;
+        }
+        
+        // Create a span with the color
+        const span = document.createElement('span');
+        span.style.color = color;
+        
+        try {
+            // Extract the selected content
+            const contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+            
+            // Move cursor to end of inserted span
+            range.setStartAfter(span);
+            range.setEndAfter(span);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } catch (e) {
+            console.error('Error applying color:', e);
+        }
     },
 
     /**
@@ -131,8 +165,6 @@ const SnapshotManager = {
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
         }).join('');
 
-        const commentColor = snapshot.commentColor || '#f0f0f2';
-
         card.innerHTML = `
             <div class="snapshot-card-thumbnail">
                 <button class="snapshot-card-delete" title="Delete snapshot">
@@ -146,7 +178,7 @@ const SnapshotManager = {
             </div>
             <div class="snapshot-card-body">
                 <div class="snapshot-card-tags">${tagsHtml}</div>
-                <p class="snapshot-card-comment" style="color: ${commentColor}">${snapshot.comment || ''}</p>
+                <div class="snapshot-card-comment">${snapshot.comment || ''}</div>
             </div>
         `;
 
@@ -216,18 +248,9 @@ const SnapshotManager = {
         // Initialize drawing canvas with snapshot image
         DrawingTool.loadImage(snapshot.originalImage, snapshot.fabricData);
 
-        // Set comment
+        // Set comment (HTML content)
         const commentInput = document.getElementById('commentInput');
-        commentInput.value = snapshot.comment || '';
-        
-        // Set comment color
-        this.currentCommentColor = snapshot.commentColor || '#f0f0f2';
-        commentInput.style.color = this.currentCommentColor;
-        
-        // Update color picker
-        document.querySelectorAll('.comment-color-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.color === this.currentCommentColor);
-        });
+        commentInput.innerHTML = snapshot.comment || '';
 
         // Set tags and hours
         TagManager.setTags(snapshot.tags || [], snapshot.tagHours || {});
@@ -252,9 +275,8 @@ const SnapshotManager = {
     async saveAndClose() {
         if (!this.currentSnapshotId) return;
 
-        // Get current state
-        const comment = document.getElementById('commentInput').value;
-        const commentColor = this.currentCommentColor;
+        // Get current state (HTML content for rich text)
+        const comment = document.getElementById('commentInput').innerHTML;
         const tags = TagManager.getTags();
         const tagHours = TagManager.getTagHours();
         const fabricData = DrawingTool.getCanvasData();
@@ -263,7 +285,6 @@ const SnapshotManager = {
         // Update storage
         await Storage.updateSnapshot(this.currentSnapshotId, {
             comment,
-            commentColor,
             tags,
             tagHours,
             fabricData,
@@ -271,7 +292,7 @@ const SnapshotManager = {
         });
 
         // Update card in list
-        this.updateSnapshotCard(this.currentSnapshotId, { comment, commentColor, tags, tagHours, fabricData });
+        this.updateSnapshotCard(this.currentSnapshotId, { comment, tags, tagHours, fabricData });
 
         App.showToast('Snapshot saved!', 'success');
         this.closeModal();
@@ -294,10 +315,9 @@ const SnapshotManager = {
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
         }).join('');
 
-        // Update comment with color
+        // Update comment (HTML content)
         const commentEl = card.querySelector('.snapshot-card-comment');
-        commentEl.textContent = data.comment || '';
-        commentEl.style.color = data.commentColor || '#f0f0f2';
+        commentEl.innerHTML = data.comment || '';
 
         // Update markup indicator
         if (data.fabricData) {

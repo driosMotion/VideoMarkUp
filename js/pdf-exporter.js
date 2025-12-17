@@ -195,7 +195,7 @@ const PDFExporter = {
             });
         }
 
-        // Comment section
+        // Comment section with rich text support
         const commentY = 148;
         doc.setFontSize(9);
         doc.setFont('helvetica', 'bold');
@@ -205,14 +205,9 @@ const PDFExporter = {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
 
-        // Set comment color
-        const commentColor = snapshot.commentColor || '#f0f0f2';
-        const rgb = this.hexToRgb(commentColor);
-        doc.setTextColor(rgb.r, rgb.g, rgb.b);
-
+        // Parse HTML comment and render with colors
         const comment = snapshot.comment || 'No comment';
-        const commentLines = doc.splitTextToSize(comment, pageWidth - (margin * 2));
-        doc.text(commentLines, margin, commentY + 8);
+        this.renderRichTextComment(doc, comment, margin, commentY + 8, pageWidth - (margin * 2));
 
         // Footer
         doc.setFontSize(8);
@@ -269,6 +264,80 @@ const PDFExporter = {
             month: 'long',
             day: 'numeric'
         });
+    },
+
+    /**
+     * Render rich text comment with colors in PDF
+     * @param {Object} doc - jsPDF document
+     * @param {string} htmlContent - HTML content
+     * @param {number} x - X position
+     * @param {number} y - Y position
+     * @param {number} maxWidth - Maximum width
+     */
+    renderRichTextComment(doc, htmlContent, x, y, maxWidth) {
+        // Create a temporary div to parse HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlContent;
+        
+        // Extract text with colors
+        const textSegments = this.extractTextSegments(tempDiv);
+        
+        if (textSegments.length === 0) {
+            doc.setTextColor(240, 240, 242);
+            doc.text('No comment', x, y);
+            return;
+        }
+        
+        let currentX = x;
+        let currentY = y;
+        const lineHeight = 6;
+        
+        textSegments.forEach(segment => {
+            const color = this.hexToRgb(segment.color);
+            doc.setTextColor(color.r, color.g, color.b);
+            
+            const words = segment.text.split(' ');
+            words.forEach((word, idx) => {
+                const wordWithSpace = idx < words.length - 1 ? word + ' ' : word;
+                const wordWidth = doc.getTextWidth(wordWithSpace);
+                
+                // Check if we need to wrap to next line
+                if (currentX + wordWidth > x + maxWidth && currentX > x) {
+                    currentX = x;
+                    currentY += lineHeight;
+                }
+                
+                doc.text(wordWithSpace, currentX, currentY);
+                currentX += wordWidth;
+            });
+        });
+    },
+
+    /**
+     * Extract text segments with their colors from HTML
+     * @param {HTMLElement} element
+     * @returns {Array}
+     */
+    extractTextSegments(element) {
+        const segments = [];
+        
+        const traverse = (node, defaultColor = '#f0f0f2') => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent.trim();
+                if (text) {
+                    segments.push({ text, color: defaultColor });
+                }
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const color = node.style.color || defaultColor;
+                
+                node.childNodes.forEach(child => {
+                    traverse(child, color);
+                });
+            }
+        };
+        
+        traverse(element);
+        return segments;
     },
 
     /**

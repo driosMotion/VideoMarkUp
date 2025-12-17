@@ -85,8 +85,7 @@ const Storage = {
             originalImage: snapshot.originalImage, // Blob or base64
             markedUpImage: snapshot.markedUpImage || null,
             fabricData: snapshot.fabricData || null, // Fabric.js JSON
-            comment: snapshot.comment || '',
-            commentColor: snapshot.commentColor || '#f0f0f2',
+            comment: snapshot.comment || '', // HTML content with inline colors
             tags: snapshot.tags || [],
             tagHours: snapshot.tagHours || {}, // Hours per tag for staffing
             createdAt: new Date()
