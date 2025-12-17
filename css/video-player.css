@@ -76,6 +76,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+    min-height: 0;
 }
 
 .video-wrapper {
@@ -87,13 +88,13 @@
     align-items: center;
     justify-content: center;
     position: relative;
+    min-height: 0;
 }
 
 .video-wrapper video {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto;
-    height: auto;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 /* Video Controls */
@@ -287,56 +288,32 @@
     border-bottom: 4px solid var(--warning);
 }
 
-/* Capture Button */
-.capture-btn {
+/* Capture Button - Inline version */
+.capture-btn-inline {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-xl);
+    padding: var(--spacing-sm) var(--spacing-md);
     background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
     border: none;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     color: white;
     font-family: var(--font-sans);
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-fast);
-    align-self: center;
-    position: relative;
+    white-space: nowrap;
 }
 
-.capture-btn svg {
-    width: 22px;
-    height: 22px;
+.capture-btn-inline svg {
+    width: 18px;
+    height: 18px;
 }
 
-.capture-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-glow), 0 8px 20px rgba(139, 92, 246, 0.4);
-}
-
-.capture-btn:active {
-    transform: translateY(0);
-}
-
-.capture-btn .kbd-hint {
-    position: absolute;
-    right: -40px;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    opacity: 0;
-    transition: opacity var(--transition-fast);
-}
-
-.capture-btn:hover .kbd-hint {
-    opacity: 1;
+.capture-btn-inline:hover {
+    box-shadow: var(--shadow-glow), 0 4px 12px rgba(139, 92, 246, 0.4);
+    transform: scale(1.02);
 }
 
 /* Capture Flash Effect */

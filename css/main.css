@@ -242,8 +242,9 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: var(--spacing-lg);
+    padding: var(--spacing-md);
     overflow: hidden;
+    min-width: 0;
 }
 
 .snapshots-sidebar {
