@@ -173,6 +173,17 @@ const VideoHandler = {
         this.duration = this.video.duration;
         document.getElementById('duration').textContent = this.formatTimecode(this.duration);
         document.getElementById('currentTime').textContent = this.formatTimecode(0);
+        
+        // Detect aspect ratio and add class for vertical videos
+        const wrapper = document.querySelector('.video-wrapper');
+        const aspectRatio = this.video.videoWidth / this.video.videoHeight;
+        
+        if (aspectRatio < 1) {
+            // Vertical/portrait video
+            wrapper.classList.add('vertical');
+        } else {
+            wrapper.classList.remove('vertical');
+        }
     },
 
     /**

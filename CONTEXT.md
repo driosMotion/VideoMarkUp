@@ -58,12 +58,21 @@ VideoMarkup/
 
 ## Key Features
 
+### Project Manager
+- Dropdown menu in header to manage projects
+- Switch between saved projects
+- Delete projects
+- Create new project (reset to upload state)
+- Shows project date and active indicator
+
 ### Video Player
 - Drag & drop or click to upload video (MP4, WebM, MOV)
+- Supports all aspect ratios (horizontal, vertical, square)
 - Custom controls: play/pause, frame step (←/→), seek bar
 - Timecode display (HH:MM:SS:FF format, 24fps default)
 - Volume control with mute toggle
 - Snapshot markers on timeline
+- Keyboard shortcuts displayed below timeline
 
 ### Snapshot Capture
 - Click "Capture Snapshot" or press `S` key

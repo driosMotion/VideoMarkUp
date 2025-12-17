@@ -15,6 +15,7 @@ const App = {
         TagManager.init();
         PDFExporter.init();
         ProjectSharing.init();
+        ProjectManager.init();
 
         // Set up keyboard shortcuts
         this.setupKeyboardShortcuts();
