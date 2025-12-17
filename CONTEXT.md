@@ -96,7 +96,9 @@ VideoMarkup/
 - Brush size slider (1-20px)
 - Undo & Clear buttons
 - Tag buttons with visual states
-- Comment textarea (auto-save on close)
+- Comment textarea with color picker (7 colors to match drawing overlays)
+  - Comments display in selected color on cards and PDF
+  - Helps match comments to specific annotations
 
 ### Tags & Staffing
 Available tags with color coding and hour estimates:
