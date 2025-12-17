@@ -6,6 +6,7 @@
 const SnapshotManager = {
     snapshots: [],
     currentSnapshotId: null,
+    currentCommentColor: '#f0f0f2',
 
     /**
      * Initialize snapshot manager
@@ -23,11 +24,22 @@ const SnapshotManager = {
         const saveBtn = document.getElementById('saveSnapshotBtn');
         const deleteBtn = document.getElementById('deleteSnapshotBtn');
         const modal = document.getElementById('snapshotModal');
+        const commentInput = document.getElementById('commentInput');
 
         captureBtn.addEventListener('click', () => this.captureSnapshot());
         modalClose.addEventListener('click', () => this.closeModal());
         saveBtn.addEventListener('click', () => this.saveAndClose());
         deleteBtn.addEventListener('click', () => this.deleteCurrentSnapshot());
+
+        // Comment color picker
+        document.querySelectorAll('.comment-color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.comment-color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentCommentColor = btn.dataset.color;
+                commentInput.style.color = this.currentCommentColor;
+            });
+        });
 
         // Close modal on backdrop click
         modal.addEventListener('click', (e) => {
@@ -119,6 +131,8 @@ const SnapshotManager = {
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
         }).join('');
 
+        const commentColor = snapshot.commentColor || '#f0f0f2';
+
         card.innerHTML = `
             <div class="snapshot-card-thumbnail">
                 <button class="snapshot-card-delete" title="Delete snapshot">
@@ -132,7 +146,7 @@ const SnapshotManager = {
             </div>
             <div class="snapshot-card-body">
                 <div class="snapshot-card-tags">${tagsHtml}</div>
-                <p class="snapshot-card-comment">${snapshot.comment || ''}</p>
+                <p class="snapshot-card-comment" style="color: ${commentColor}">${snapshot.comment || ''}</p>
             </div>
         `;
 
@@ -203,7 +217,17 @@ const SnapshotManager = {
         DrawingTool.loadImage(snapshot.originalImage, snapshot.fabricData);
 
         // Set comment
-        document.getElementById('commentInput').value = snapshot.comment || '';
+        const commentInput = document.getElementById('commentInput');
+        commentInput.value = snapshot.comment || '';
+        
+        // Set comment color
+        this.currentCommentColor = snapshot.commentColor || '#f0f0f2';
+        commentInput.style.color = this.currentCommentColor;
+        
+        // Update color picker
+        document.querySelectorAll('.comment-color-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.color === this.currentCommentColor);
+        });
 
         // Set tags and hours
         TagManager.setTags(snapshot.tags || [], snapshot.tagHours || {});
@@ -230,6 +254,7 @@ const SnapshotManager = {
 
         // Get current state
         const comment = document.getElementById('commentInput').value;
+        const commentColor = this.currentCommentColor;
         const tags = TagManager.getTags();
         const tagHours = TagManager.getTagHours();
         const fabricData = DrawingTool.getCanvasData();
@@ -238,6 +263,7 @@ const SnapshotManager = {
         // Update storage
         await Storage.updateSnapshot(this.currentSnapshotId, {
             comment,
+            commentColor,
             tags,
             tagHours,
             fabricData,
@@ -245,7 +271,7 @@ const SnapshotManager = {
         });
 
         // Update card in list
-        this.updateSnapshotCard(this.currentSnapshotId, { comment, tags, tagHours, fabricData });
+        this.updateSnapshotCard(this.currentSnapshotId, { comment, commentColor, tags, tagHours, fabricData });
 
         App.showToast('Snapshot saved!', 'success');
         this.closeModal();
@@ -268,9 +294,10 @@ const SnapshotManager = {
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
         }).join('');
 
-        // Update comment
+        // Update comment with color
         const commentEl = card.querySelector('.snapshot-card-comment');
         commentEl.textContent = data.comment || '';
+        commentEl.style.color = data.commentColor || '#f0f0f2';
 
         // Update markup indicator
         if (data.fabricData) {

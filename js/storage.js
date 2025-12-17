@@ -86,6 +86,7 @@ const Storage = {
             markedUpImage: snapshot.markedUpImage || null,
             fabricData: snapshot.fabricData || null, // Fabric.js JSON
             comment: snapshot.comment || '',
+            commentColor: snapshot.commentColor || '#f0f0f2',
             tags: snapshot.tags || [],
             tagHours: snapshot.tagHours || {}, // Hours per tag for staffing
             createdAt: new Date()

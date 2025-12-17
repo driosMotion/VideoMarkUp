@@ -203,8 +203,12 @@ const PDFExporter = {
         doc.text('COMMENT:', margin, commentY);
 
         doc.setFont('helvetica', 'normal');
-        doc.setTextColor(240, 240, 242);
         doc.setFontSize(11);
+
+        // Set comment color
+        const commentColor = snapshot.commentColor || '#f0f0f2';
+        const rgb = this.hexToRgb(commentColor);
+        doc.setTextColor(rgb.r, rgb.g, rgb.b);
 
         const comment = snapshot.comment || 'No comment';
         const commentLines = doc.splitTextToSize(comment, pageWidth - (margin * 2));
