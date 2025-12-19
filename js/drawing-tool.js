@@ -49,6 +49,18 @@ const DrawingTool = {
             this.updateBrushSize();
         });
 
+        // Reference image upload
+        const uploadRefBtn = document.getElementById('uploadReferenceBtn');
+        const refInput = document.getElementById('referenceImageInput');
+        
+        uploadRefBtn.addEventListener('click', () => refInput.click());
+        refInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) {
+                this.addReferenceImage(e.target.files[0]);
+                e.target.value = ''; // Reset for future uploads
+            }
+        });
+
         // Undo button
         document.getElementById('undoBtn').addEventListener('click', () => this.undo());
 
@@ -476,6 +488,48 @@ const DrawingTool = {
             format: 'png',
             quality: 1
         });
+    },
+
+    /**
+     * Add a reference image to the canvas
+     * @param {File} file - Image file
+     */
+    addReferenceImage(file) {
+        if (!this.canvas) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            fabric.Image.fromURL(e.target.result, (img) => {
+                // Scale image to fit canvas (max 50% of canvas size)
+                const maxWidth = this.canvas.width * 0.5;
+                const maxHeight = this.canvas.height * 0.5;
+                
+                const scale = Math.min(
+                    maxWidth / img.width,
+                    maxHeight / img.height,
+                    1 // Don't upscale
+                );
+
+                img.scale(scale);
+                
+                // Center the image
+                img.set({
+                    left: (this.canvas.width - img.width * scale) / 2,
+                    top: (this.canvas.height - img.height * scale) / 2,
+                    selectable: true,
+                    hasControls: true,
+                    hasBorders: true,
+                    lockUniScaling: false
+                });
+
+                this.canvas.add(img);
+                this.canvas.setActiveObject(img);
+                this.canvas.renderAll();
+
+                App.showToast('Reference image added', 'success');
+            });
+        };
+        reader.readAsDataURL(file);
     }
 };
 

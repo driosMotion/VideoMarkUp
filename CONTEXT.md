@@ -66,7 +66,8 @@ VideoMarkup/
 - Shows project date and active indicator
 
 ### Video Player
-- Drag & drop or click to upload video (MP4, WebM, MOV)
+- Drag & drop or click to upload video
+- **Supported formats**: MP4, WebM, MOV, AVI, ProRes, MKV, M4V, MPG, MPEG, WMV, FLV, 3GP, and more
 - Supports all aspect ratios (horizontal, vertical, square)
 - Custom controls: play/pause, frame step (←/→), seek bar
 - Timecode display (HH:MM:SS:FF format, 24fps default)
@@ -84,6 +85,7 @@ VideoMarkup/
 
 ### Snapshot Editor (Modal)
 - Full-size preview with Fabric.js overlay
+- **Reference image upload**: Add images as overlays for comparison (scaled and draggable)
 - Drawing tools:
   - Select (V) - Move/resize objects
   - Draw (B) - Freehand brush
@@ -97,7 +99,8 @@ VideoMarkup/
 - Undo & Clear buttons
 - Tag buttons with visual states
 - Comment textarea with color picker (7 colors to match drawing overlays)
-  - Comments display in selected color on cards and PDF
+  - Rich text: select text and apply different colors
+  - Comments display with colors on cards and PDF
   - Helps match comments to specific annotations
 
 ### Tags & Staffing
