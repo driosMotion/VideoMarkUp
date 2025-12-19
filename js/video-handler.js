@@ -55,7 +55,8 @@ const VideoHandler = {
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
             const file = e.dataTransfer.files[0];
-            if (file && file.type.startsWith('video/')) {
+            if (file) {
+                // Accept any file - browser will determine if it can play it
                 this.loadVideo(file);
             }
         });
