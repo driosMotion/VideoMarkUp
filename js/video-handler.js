@@ -163,6 +163,8 @@ const VideoHandler = {
                 SnapshotManager.addSnapshotToList(snapshot);
                 SnapshotManager.addTimelineMarker(snapshot);
             });
+            // Sort snapshots by timecode after loading
+            SnapshotManager.sortSnapshotsByTimecode();
             SnapshotManager.updateSnapshotCount();
         }, { once: true });
     },
@@ -205,6 +207,16 @@ const VideoHandler = {
         this.isPlaying = true;
         document.querySelector('.play-icon').hidden = true;
         document.querySelector('.pause-icon').hidden = false;
+        
+        // Reset quick comment bar when playback resumes
+        const quickCommentInput = document.getElementById('quickCommentInput');
+        if (quickCommentInput) {
+            quickCommentInput.value = '';
+            // Reset snapshot reference in SnapshotManager
+            if (window.SnapshotManager) {
+                window.SnapshotManager.quickCommentSnapshotId = null;
+            }
+        }
     },
 
     /**

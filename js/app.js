@@ -59,12 +59,6 @@ const App = {
                     }
                     break;
 
-                case 'KeyS':
-                    if (!isModalOpen && VideoHandler.video.src && !e.metaKey && !e.ctrlKey) {
-                        e.preventDefault();
-                        SnapshotManager.captureSnapshot();
-                    }
-                    break;
             }
 
             // Modal shortcuts (when modal is open)

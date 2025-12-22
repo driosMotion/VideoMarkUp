@@ -6,6 +6,7 @@
 const SnapshotManager = {
     snapshots: [],
     currentSnapshotId: null,
+    quickCommentSnapshotId: null,
 
     /**
      * Initialize snapshot manager
@@ -18,17 +19,23 @@ const SnapshotManager = {
      * Set up event listeners
      */
     setupEventListeners() {
-        const captureBtn = document.getElementById('captureBtn');
         const modalClose = document.getElementById('modalClose');
         const saveBtn = document.getElementById('saveSnapshotBtn');
         const deleteBtn = document.getElementById('deleteSnapshotBtn');
         const modal = document.getElementById('snapshotModal');
         const commentInput = document.getElementById('commentInput');
+        const quickCommentInput = document.getElementById('quickCommentInput');
 
-        captureBtn.addEventListener('click', () => this.captureSnapshot());
         modalClose.addEventListener('click', () => this.closeModal());
         saveBtn.addEventListener('click', () => this.saveAndClose());
         deleteBtn.addEventListener('click', () => this.deleteCurrentSnapshot());
+
+        // Quick comment - auto-create snapshot on first letter
+        if (quickCommentInput) {
+            quickCommentInput.addEventListener('input', (e) => {
+                this.handleQuickComment(e.target.value);
+            });
+        }
 
         // Comment color picker - apply to selected text
         document.querySelectorAll('.comment-color-btn').forEach(btn => {
@@ -49,6 +56,105 @@ const SnapshotManager = {
             if (e.key === 'Escape' && !modal.hidden) {
                 this.closeModal();
             }
+        });
+    },
+
+    /**
+     * Handle quick comment input
+     * @param {string} value - Comment text
+     */
+    async handleQuickComment(value) {
+        if (!VideoHandler.currentProjectId) return;
+
+        // On first character, create snapshot
+        if (value.length === 1 && !this.quickCommentSnapshotId) {
+            await this.captureSnapshotWithComment(value);
+        } else if (this.quickCommentSnapshotId && value.length > 0) {
+            // Update existing snapshot comment
+            await Storage.updateSnapshot(this.quickCommentSnapshotId, {
+                comment: value
+            });
+            this.updateSnapshotCard(this.quickCommentSnapshotId, { comment: value });
+        } else if (value.length === 0) {
+            // Reset if comment is cleared
+            this.quickCommentSnapshotId = null;
+        }
+    },
+
+    /**
+     * Capture snapshot with initial comment text
+     * @param {string} initialComment - Initial comment text
+     */
+    async captureSnapshotWithComment(initialComment = '') {
+        if (!VideoHandler.currentProjectId) {
+            App.showToast('No video loaded', 'error');
+            return;
+        }
+
+        // Pause video
+        VideoHandler.video.pause();
+
+        // Flash effect
+        const wrapper = document.querySelector('.video-wrapper');
+        wrapper.classList.add('flash');
+        setTimeout(() => wrapper.classList.remove('flash'), 150);
+
+        // Capture frame
+        const canvas = VideoHandler.captureFrame();
+        const imageData = canvas.toDataURL('image/png');
+        const timestamp = VideoHandler.getCurrentTime();
+
+        // Save to storage
+        const snapshotId = await Storage.addSnapshot({
+            projectId: VideoHandler.currentProjectId,
+            timestamp: timestamp,
+            originalImage: imageData,
+            comment: initialComment,
+            tags: []
+        });
+
+        // Store reference for updating
+        this.quickCommentSnapshotId = snapshotId;
+
+        // Get the full snapshot data
+        const snapshot = await Storage.getSnapshot(snapshotId);
+        this.snapshots.push(snapshot);
+
+        // Add to list (will be sorted)
+        this.addSnapshotToList(snapshot);
+
+        // Sort snapshots by timecode
+        this.sortSnapshotsByTimecode();
+
+        // Add marker to timeline
+        this.addTimelineMarker(snapshot);
+
+        // Update count
+        this.updateSnapshotCount();
+    },
+
+    /**
+     * Sort snapshots in the list by timecode order
+     */
+    sortSnapshotsByTimecode() {
+        const listEl = document.getElementById('snapshotsList');
+        const cards = Array.from(listEl.querySelectorAll('.snapshot-card'));
+        
+        if (cards.length === 0) return;
+        
+        // Sort cards by data-timestamp attribute
+        cards.sort((a, b) => {
+            const timeA = parseFloat(a.dataset.timestamp) || 0;
+            const timeB = parseFloat(b.dataset.timestamp) || 0;
+            return timeA - timeB;
+        });
+
+        // Clear and re-append in sorted order
+        cards.forEach(card => {
+            card.remove();
+        });
+        cards.forEach(card => {
+            listEl.appendChild(card);
         });
     },
 
@@ -128,6 +234,9 @@ const SnapshotManager = {
         // Add to list
         this.addSnapshotToList(snapshot);
 
+        // Sort snapshots by timecode
+        this.sortSnapshotsByTimecode();
+
         // Add marker to timeline
         this.addTimelineMarker(snapshot);
 
@@ -153,6 +262,7 @@ const SnapshotManager = {
         const card = document.createElement('div');
         card.className = 'snapshot-card';
         card.dataset.id = snapshot.id;
+        card.dataset.timestamp = snapshot.timestamp; // Store timestamp for sorting
         
         if (snapshot.fabricData) {
             card.classList.add('has-markup');

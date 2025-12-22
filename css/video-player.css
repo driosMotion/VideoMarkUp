@@ -358,6 +358,33 @@
     color: var(--text-secondary);
 }
 
+/* Quick Comment Bar */
+.quick-comment-bar {
+    margin-top: var(--spacing-md);
+}
+
+.quick-comment-bar input {
+    width: 100%;
+    padding: var(--spacing-md);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    transition: border-color var(--transition-fast);
+}
+
+.quick-comment-bar input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+}
+
+.quick-comment-bar input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
 /* Capture Flash Effect */
 .video-wrapper.flash::after {
     content: '';
