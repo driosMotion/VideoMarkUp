@@ -60,6 +60,13 @@
                 Import
             </button>
             <input type="file" id="importProjectInput" accept=".zip" hidden>
+            <button class="btn btn-secondary" id="editTagsBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                </svg>
+                Tags
+            </button>
             <button class="btn btn-secondary" id="exportProjectBtn" disabled title="Export project as .zip to share">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -67,13 +74,6 @@
                     <line x1="12" y1="3" x2="12" y2="15"></line>
                 </svg>
                 Share
-            </button>
-            <button class="btn btn-secondary" id="editTagsBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                </svg>
-                Edit Tags
             </button>
             <button class="btn btn-primary" id="exportPdfBtn" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -218,23 +218,29 @@
                                 </svg>
                             </button>
                         </div>
+                        <div class="brush-size-inline">
+                            <span id="brushSizeValueInline">6</span>px
+                            <input type="range" id="brushSizeInline" min="1" max="20" value="6">
+                        </div>
                     </div>
 
-                    <!-- Colors & Stroke Panel -->
+                    <!-- Colors Panel -->
                     <div class="compact-panel">
-                        <div class="panel-label">Colors & Stroke</div>
+                        <div class="panel-label">Colors</div>
                         <div class="panel-content">
                             <div class="color-swatches-inline">
-                                <button class="color-swatch active" data-color="#ff3b3b" style="background:#ff3b3b"></button>
-                                <button class="color-swatch" data-color="#ffcc00" style="background:#ffcc00"></button>
-                                <button class="color-swatch" data-color="#00d68f" style="background:#00d68f"></button>
-                                <button class="color-swatch" data-color="#0095ff" style="background:#0095ff"></button>
-                                <button class="color-swatch" data-color="#9b59b6" style="background:#9b59b6"></button>
-                                <button class="color-swatch" data-color="#ffffff" style="background:#ffffff"></button>
-                            </div>
-                            <div class="brush-size-inline">
-                                <span id="brushSizeValueInline">6</span>px
-                                <input type="range" id="brushSizeInline" min="1" max="20" value="6">
+                                <button class="color-swatch active" data-color="#ff3b3b" style="background:#ff3b3b" title="Red"></button>
+                                <button class="color-swatch" data-color="#ff6b35" style="background:#ff6b35" title="Orange"></button>
+                                <button class="color-swatch" data-color="#ffcc00" style="background:#ffcc00" title="Yellow"></button>
+                                <button class="color-swatch" data-color="#00d68f" style="background:#00d68f" title="Green"></button>
+                                <button class="color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="Cyan"></button>
+                                <button class="color-swatch" data-color="#0095ff" style="background:#0095ff" title="Blue"></button>
+                                <button class="color-swatch" data-color="#9b59b6" style="background:#9b59b6" title="Purple"></button>
+                                <button class="color-swatch" data-color="#ff10f0" style="background:#ff10f0" title="Magenta"></button>
+                                <button class="color-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></button>
+                                <button class="color-swatch" data-color="#cccccc" style="background:#cccccc" title="Gray"></button>
+                                <button class="color-swatch" data-color="#666666" style="background:#666666" title="Dark Gray"></button>
+                                <button class="color-swatch" data-color="#000000" style="background:#000000" title="Black"></button>
                             </div>
                         </div>
                     </div>
@@ -286,6 +292,22 @@
                                 <div class="tag-item">
                                     <button class="tag-btn" data-tag="comp">Comp</button>
                                     <input type="number" class="tag-hours-input" data-tag="comp" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="anim">Anim</button>
+                                    <input type="number" class="tag-hours-input" data-tag="anim" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="lighting">Light</button>
+                                    <input type="number" class="tag-hours-input" data-tag="lighting" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="tracking">Track</button>
+                                    <input type="number" class="tag-hours-input" data-tag="tracking" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="fx">FX</button>
+                                    <input type="number" class="tag-hours-input" data-tag="fx" placeholder="h" min="0" step="0.5">
                                 </div>
                             </div>
                         </div>

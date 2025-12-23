@@ -504,22 +504,28 @@
     align-items: flex-start;
 }
 
-/* Colors & Stroke */
+/* Colors */
 .color-swatches-inline {
     display: flex;
-    gap: 3px;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 200px;
 }
 
+/* Brush Size Slider */
 .brush-size-inline {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
     font-size: 0.6875rem;
     color: var(--text-secondary);
+    margin-top: var(--spacing-xs);
+    width: 100%;
 }
 
 .brush-size-inline input[type="range"] {
-    width: 60px;
+    flex: 1;
+    max-width: 80px;
 }
 
 /* Actions */

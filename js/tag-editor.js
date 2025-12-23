@@ -205,9 +205,9 @@ const TagEditor = {
             this.activeTags = this.activeTags.filter(id => id !== tagId);
             itemElement.classList.remove('active');
         } else {
-            // Add tag (max 4)
-            if (this.activeTags.length >= 4) {
-                App.showToast('Maximum 4 tags allowed', 'warning');
+            // Add tag (max 8)
+            if (this.activeTags.length >= 8) {
+                App.showToast('Maximum 8 tags allowed', 'warning');
                 return;
             }
             this.activeTags.push(tagId);

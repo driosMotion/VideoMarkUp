@@ -87,7 +87,7 @@
 .color-swatch {
     width: 24px;
     height: 24px;
-    border-radius: var(--radius-sm);
+    border-radius: 50%; /* Make circular */
     border: 2px solid transparent;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -95,15 +95,17 @@
 }
 
 .color-swatch:hover {
-    transform: scale(1.1);
+    transform: scale(1.15);
 }
 
 .color-swatch.active {
     border-color: white;
     box-shadow: 0 0 0 2px var(--accent-primary);
+    transform: scale(1.15);
 }
 
-.color-swatch[data-color="#ffffff"] {
+.color-swatch[data-color="#ffffff"],
+.color-swatch[data-color="#cccccc"] {
     border-color: var(--border-color);
 }
 
