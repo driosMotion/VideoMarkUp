@@ -152,6 +152,76 @@ const SnapshotManager = {
 
         // Enter inline edit mode immediately (preserve comment to avoid cursor jump)
         this.enterInlineEditMode(snapshotId, imageData, null, true);
+        
+        return snapshotId;
+    },
+
+    /**
+     * Capture snapshot SYNCHRONOUSLY for immediate drawing
+     * Returns snapshot ID and imageData immediately, saves to DB in background
+     * @param {string} initialComment - Initial comment HTML
+     * @returns {Object} { snapshotId, imageData, promise }
+     */
+    captureSnapshotSync(initialComment = '') {
+        console.log('📸 captureSnapshotSync - IMMEDIATE capture');
+        if (!VideoHandler.currentProjectId) {
+            App.showToast('No video loaded', 'error');
+            return null;
+        }
+
+        // Pause video
+        VideoHandler.video.pause();
+
+        // Capture frame IMMEDIATELY (synchronous)
+        const canvas = VideoHandler.captureFrame();
+        const imageData = canvas.toDataURL('image/png');
+        const timestamp = VideoHandler.getCurrentTime();
+        
+        console.log('✅ Frame captured, timestamp:', timestamp);
+
+        // Generate temporary ID (will be replaced with real ID from DB)
+        const tempSnapshotId = Date.now();
+
+        // Start background save (don't await)
+        const savePromise = (async () => {
+            const snapshotId = await Storage.addSnapshot({
+                projectId: VideoHandler.currentProjectId,
+                timestamp: timestamp,
+                originalImage: imageData,
+                comment: initialComment,
+                tags: []
+            });
+
+            // Update references with real ID
+            this.quickCommentSnapshotId = snapshotId;
+            this.currentSnapshotId = snapshotId;
+
+            // Get the full snapshot data
+            const snapshot = await Storage.getSnapshot(snapshotId);
+            this.snapshots.push(snapshot);
+
+            // Add to list (will be sorted)
+            this.addSnapshotToList(snapshot);
+
+            // Sort snapshots by timecode
+            this.sortSnapshotsByTimecode();
+
+            // Add marker to timeline
+            this.addTimelineMarker(snapshot);
+
+            // Update count
+            this.updateSnapshotCount();
+            
+            console.log('💾 Snapshot saved to DB with ID:', snapshotId);
+            
+            return snapshotId;
+        })();
+
+        return {
+            snapshotId: tempSnapshotId,
+            imageData: imageData,
+            savePromise: savePromise
+        };
     },
 
     /**

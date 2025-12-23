@@ -153,8 +153,8 @@ const DrawingTool = {
             }
         });
         
-        // Add click handler to video wrapper for snapshot creation
-        // This catches clicks even when canvas doesn't exist yet
+        // Add click handler to video wrapper for immediate drawing
+        // Snapshot will be created AFTER drawing is finished (on mouseup)
         const videoWrapper = document.querySelector('.video-wrapper');
         if (videoWrapper) {
             videoWrapper.addEventListener('mousedown', async (e) => {
@@ -176,25 +176,26 @@ const DrawingTool = {
                     return;
                 }
                 
-                // If canvas doesn't exist yet, create snapshot and trigger drawing
+                // If no canvas/snapshot exists, create snapshot SYNCHRONOUSLY for immediate drawing
                 if (!this.canvas || !this.activeSnapshotId) {
-                    console.log('📸 Need to create snapshot first');
+                    console.log('📸 Creating snapshot SYNCHRONOUSLY for immediate drawing');
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    // Store click position relative to video wrapper
-                    const rect = videoWrapper.getBoundingClientRect();
-                    const clickX = e.clientX - rect.left;
-                    const clickY = e.clientY - rect.top;
+                    // Capture snapshot synchronously - returns immediately!
+                    const snapshotData = SnapshotManager.captureSnapshotSync('');
+                    if (!snapshotData) {
+                        console.log('❌ Failed to capture snapshot');
+                        return;
+                    }
                     
-                    console.log('📍 Click position:', { clickX, clickY, clientX: e.clientX, clientY: e.clientY });
+                    console.log('✅ Snapshot captured synchronously, tempId:', snapshotData.snapshotId);
                     
-                    // Create snapshot
-                    console.log('⏳ Creating snapshot...');
-                    await this.ensureSnapshotExists();
-                    console.log('✅ Snapshot created, activeSnapshotId:', this.activeSnapshotId);
+                    // Enter edit mode SYNCHRONOUSLY with the image data
+                    // This creates the canvas ready promise
+                    this.activeSnapshotId = snapshotData.snapshotId;
+                    DrawingTool.enterEditMode(snapshotData.snapshotId, snapshotData.imageData, null);
                     
-                    // Wait for canvas to be fully ready using the promise
                     console.log('⏳ Waiting for canvas ready promise...');
                     if (this.canvasReadyPromise) {
                         await this.canvasReadyPromise;
@@ -203,13 +204,22 @@ const DrawingTool = {
                         console.log('⚠️ No canvas ready promise!');
                     }
                     
+                    // Update with real ID once saved
+                    snapshotData.savePromise.then(realId => {
+                        console.log('💾 Real snapshot ID received:', realId);
+                        if (this.activeSnapshotId === snapshotData.snapshotId) {
+                            this.activeSnapshotId = realId;
+                        }
+                        SnapshotManager.currentSnapshotId = realId;
+                    });
+                    
                     console.log('🎨 Canvas state:', {
                         hasCanvas: !!this.canvas,
                         canvasReady: this.canvasReady,
                         activeSnapshotId: this.activeSnapshotId
                     });
                     
-                    if (this.canvas && this.activeSnapshotId && this.canvasReady) {
+                    if (this.canvas && this.canvasReady) {
                         console.log('✅ Canvas ready, starting drawing for tool:', this.currentTool);
                         
                         // Get canvas element and calculate coordinates
