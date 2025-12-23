@@ -167,6 +167,9 @@ const DrawingTool = {
                 
                 // If canvas doesn't exist yet, create snapshot and trigger drawing
                 if (!this.canvas || !this.activeSnapshotId) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
                     // Store click position relative to video wrapper
                     const rect = videoWrapper.getBoundingClientRect();
                     const clickX = e.clientX - rect.left;
@@ -185,26 +188,57 @@ const DrawingTool = {
                     }
                     
                     if (this.canvas && this.activeSnapshotId) {
-                        ErrorHandler.debug('Canvas ready, triggering drawing action');
+                        ErrorHandler.debug('Canvas ready, simulating drawing events');
                         
-                        // Trigger the drawing action with stored coordinates
+                        // Get canvas element and calculate coordinates
+                        const canvasEl = this.canvas.getElement();
+                        const canvasRect = canvasEl.getBoundingClientRect();
+                        
+                        // Calculate pointer position on canvas
+                        const canvasX = e.clientX - canvasRect.left;
+                        const canvasY = e.clientY - canvasRect.top;
+                        
+                        // For shapes, start drawing and set up continuation handlers
                         if (['rect', 'circle', 'arrow'].includes(this.currentTool)) {
-                            // For shapes, start drawing at the click point
                             this.isDrawing = true;
-                            const canvasRect = this.canvas.getElement().getBoundingClientRect();
-                            const pointer = {
-                                x: (clickX / rect.width) * canvasRect.width,
-                                y: (clickY / rect.height) * canvasRect.height
-                            };
+                            const pointer = this.canvas.getPointer(e);
                             this.startPoint = { x: pointer.x, y: pointer.y };
                             this.createShape(pointer);
+                            
+                            // Set up temporary handlers for mouse move and up
+                            const handleMove = (moveEvent) => {
+                                if (this.isDrawing && this.currentShape) {
+                                    const movePointer = this.canvas.getPointer(moveEvent);
+                                    this.updateShape(movePointer);
+                                    this.canvas.renderAll();
+                                }
+                            };
+                            
+                            const handleUp = () => {
+                                if (this.isDrawing && this.currentShape) {
+                                    // Make shape non-selectable
+                                    if (this.currentTool !== 'select') {
+                                        this.currentShape.selectable = false;
+                                        this.currentShape.evented = false;
+                                    }
+                                    this.canvas.discardActiveObject();
+                                }
+                                this.isDrawing = false;
+                                this.currentShape = null;
+                                this.startPoint = null;
+                                this.autoSave();
+                                
+                                // Remove temporary handlers
+                                document.removeEventListener('mousemove', handleMove);
+                                document.removeEventListener('mouseup', handleUp);
+                            };
+                            
+                            document.addEventListener('mousemove', handleMove);
+                            document.addEventListener('mouseup', handleUp);
+                            
                         } else if (this.currentTool === 'text') {
                             // For text, trigger text placement
-                            const canvasRect = this.canvas.getElement().getBoundingClientRect();
-                            const pointer = {
-                                x: (clickX / rect.width) * canvasRect.width,
-                                y: (clickY / rect.height) * canvasRect.height
-                            };
+                            const pointer = this.canvas.getPointer(e);
                             
                             const text = new fabric.IText('Text', {
                                 left: pointer.x,
@@ -232,8 +266,12 @@ const DrawingTool = {
                             });
 
                             this.autoSave();
+                            
+                        } else if (this.currentTool === 'draw') {
+                            // For draw/pen tool, fire the fabric mouse event
+                            const pointer = this.canvas.getPointer(e);
+                            this.canvas.fire('mouse:down', { e: e, pointer: pointer });
                         }
-                        // For 'draw' tool, the user will need to draw on their next stroke
                     }
                 }
             }, true); // Use capture phase to catch before canvas events
