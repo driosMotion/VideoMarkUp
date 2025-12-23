@@ -150,6 +150,27 @@ const DrawingTool = {
                 this.resizeCanvas();
             }
         });
+        
+        // Add click handler to video wrapper for snapshot creation
+        // This catches clicks even when canvas doesn't exist yet
+        const videoWrapper = document.querySelector('.video-wrapper');
+        if (videoWrapper) {
+            videoWrapper.addEventListener('click', async (e) => {
+                // Only handle if a drawing tool is selected and video is paused
+                if (!['draw', 'rect', 'circle', 'arrow', 'text'].includes(this.currentTool)) {
+                    return;
+                }
+                
+                if (!VideoHandler.video || !VideoHandler.video.paused) {
+                    return;
+                }
+                
+                // If canvas doesn't exist yet, create snapshot
+                if (!this.canvas || !this.activeSnapshotId) {
+                    await this.ensureSnapshotExists();
+                }
+            }, true); // Use capture phase to catch before canvas events
+        }
     },
 
     /**
@@ -379,11 +400,13 @@ const DrawingTool = {
     async ensureSnapshotExists() {
         // Only auto-create if video is paused and we're not already editing a snapshot
         if (!VideoHandler.video || !VideoHandler.video.paused) {
+            ErrorHandler.debug('Cannot create snapshot: video not paused');
             return false;
         }
 
         // If we're already editing a snapshot, no need to create new one
         if (this.activeSnapshotId) {
+            ErrorHandler.debug('Snapshot already exists, using existing');
             return true;
         }
 
@@ -393,12 +416,17 @@ const DrawingTool = {
         
         if (existingSnapshot) {
             // Load existing snapshot for editing
+            ErrorHandler.info('Loading existing snapshot at timestamp', { time: currentTime });
             await SnapshotManager.enterInlineEditMode(existingSnapshot.id);
             return true;
         } else {
             // Create new snapshot
+            ErrorHandler.info('Creating new snapshot at timestamp', { time: currentTime });
             App.showToast('Creating snapshot...', 'info');
             await SnapshotManager.captureSnapshotWithComment('');
+            
+            // Wait a bit for canvas to be fully initialized
+            await new Promise(resolve => setTimeout(resolve, 150));
             return true;
         }
     },
@@ -407,21 +435,9 @@ const DrawingTool = {
      * Set up canvas mouse events for shape drawing
      */
     setupCanvasEvents() {
-        // Track if we need to ensure snapshot on next action
-        let snapshotEnsured = false;
-        
-        this.canvas.on('mouse:down', async (opt) => {
-            // Create snapshot before any drawing action (for all drawing tools)
-            if (['draw', 'rect', 'circle', 'arrow'].includes(this.currentTool) && !snapshotEnsured) {
-                const created = await this.ensureSnapshotExists();
-                if (created) {
-                    snapshotEnsured = true;
-                    // Wait a bit for canvas to be ready after snapshot creation
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                }
-            }
-            
+        this.canvas.on('mouse:down', (opt) => {
             if (['rect', 'circle', 'arrow'].includes(this.currentTool)) {
+                ErrorHandler.debug('Shape drawing started', { tool: this.currentTool });
                 this.isDrawing = true;
                 const pointer = this.canvas.getPointer(opt.e);
                 this.startPoint = { x: pointer.x, y: pointer.y };
@@ -690,16 +706,14 @@ const DrawingTool = {
             this.canvas.off('mouse:down', this._textHandler);
         }
         
-        this._textHandler = async (opt) => {
+        this._textHandler = (opt) => {
             if (this.currentTool !== 'text') return;
-            
-            // Create snapshot before adding text
-            await this.ensureSnapshotExists();
             
             const target = this.canvas.findTarget(opt.e);
             if (target) return;
 
             const pointer = this.canvas.getPointer(opt.e);
+            ErrorHandler.debug('Text tool clicked', { position: pointer });
             
             const text = new fabric.IText('Text', {
                 left: pointer.x,
