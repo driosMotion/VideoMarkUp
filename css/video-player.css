@@ -238,6 +238,21 @@
     height: 22px;
 }
 
+/* Ensure icons are positioned correctly */
+.play-btn .play-icon,
+.play-btn .pause-icon {
+    position: absolute;
+    transition: opacity 0.2s ease;
+}
+
+.play-btn .play-icon {
+    display: block;
+}
+
+.play-btn .pause-icon {
+    display: none;
+}
+
 /* Timecode Display */
 .timecode {
     font-family: var(--font-mono);
@@ -525,7 +540,7 @@
 
 .brush-size-inline input[type="range"] {
     flex: 1;
-    max-width: 80px;
+    min-width: 150px;
 }
 
 /* Actions */

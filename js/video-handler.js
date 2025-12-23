@@ -234,11 +234,10 @@ const VideoHandler = {
         // When playing, show pause "II" button (action available)
         if (playIcon) {
             playIcon.style.display = 'none';
-            playIcon.hidden = true;
         }
         if (pauseIcon) {
             pauseIcon.style.display = 'block';
-            pauseIcon.hidden = false;
+            pauseIcon.removeAttribute('hidden');
         }
         
         // Reset comment bar when playback resumes
@@ -272,11 +271,10 @@ const VideoHandler = {
         // When paused, show play "▶️" button (action available)
         if (playIcon) {
             playIcon.style.display = 'block';
-            playIcon.hidden = false;
+            playIcon.removeAttribute('hidden');
         }
         if (pauseIcon) {
             pauseIcon.style.display = 'none';
-            pauseIcon.hidden = true;
         }
 
         // Display markups if at a snapshot timestamp
