@@ -9,7 +9,16 @@ const App = {
      */
     async init() {
         try {
-            // Initialize all modules
+            // Initialize core modules first
+            ErrorHandler.init();
+            ErrorHandler.info('Initializing Video Markup app...');
+            
+            AppState.init();
+            CanvasManager.init();
+            ShapeDrawing.init();
+            BrushManager.init();
+            
+            // Initialize feature modules
             VideoHandler.init();
             SnapshotManager.init();
             DrawingTool.init();
@@ -27,10 +36,9 @@ const App = {
             // Initialize tag editor after everything else is ready
             TagEditor.init();
 
-            console.log('Video Markup initialized');
+            ErrorHandler.info('Video Markup initialized successfully');
         } catch (error) {
-            console.error('App initialization error:', error);
-            this.showToast('Error initializing app. Check console.', 'error');
+            ErrorHandler.logError('App initialization failed', error);
         }
     },
 
@@ -41,11 +49,11 @@ const App = {
         try {
             const latestProject = await Storage.getLatestProject();
             if (latestProject) {
-                console.log('Auto-loading latest project:', latestProject.name);
+                ErrorHandler.info('Auto-loading latest project', { name: latestProject.name });
                 await VideoHandler.loadProject(latestProject.id);
             }
         } catch (error) {
-            console.error('Failed to load latest project:', error);
+            ErrorHandler.error('Failed to load latest project', error);
         }
     },
 

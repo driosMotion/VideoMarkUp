@@ -546,7 +546,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
-    <!-- App Scripts -->
+    <!-- App Scripts - Core Modules (Load First) -->
+    <script src="js/error-handler.js"></script>
+    <script src="js/app-state.js"></script>
+    <script src="js/canvas-manager.js"></script>
+    <script src="js/shape-drawing.js"></script>
+    <script src="js/brush-manager.js"></script>
+    
+    <!-- App Scripts - Feature Modules -->
     <script src="js/storage.js"></script>
     <script src="js/video-handler.js"></script>
     <script src="js/snapshot-manager.js"></script>
