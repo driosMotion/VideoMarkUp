@@ -850,17 +850,20 @@ const SnapshotManager = {
     async navigateToNextSnapshot() {
         if (this.snapshots.length === 0) return;
 
+        // Sort snapshots by timestamp (timeline order)
+        const sortedSnapshots = [...this.snapshots].sort((a, b) => a.timestamp - b.timestamp);
+
         let nextSnapshot = null;
 
         if (this.currentSnapshotId) {
-            // Find current snapshot index
-            const currentIndex = this.snapshots.findIndex(s => s.id === this.currentSnapshotId);
-            if (currentIndex !== -1 && currentIndex < this.snapshots.length - 1) {
-                nextSnapshot = this.snapshots[currentIndex + 1];
+            // Find current snapshot index in sorted array
+            const currentIndex = sortedSnapshots.findIndex(s => s.id === this.currentSnapshotId);
+            if (currentIndex !== -1 && currentIndex < sortedSnapshots.length - 1) {
+                nextSnapshot = sortedSnapshots[currentIndex + 1];
             }
         } else {
-            // No snapshot selected, select the first one
-            nextSnapshot = this.snapshots[0];
+            // No snapshot selected, select the first one (earliest timestamp)
+            nextSnapshot = sortedSnapshots[0];
         }
 
         if (nextSnapshot) {
@@ -877,17 +880,20 @@ const SnapshotManager = {
     async navigateToPreviousSnapshot() {
         if (this.snapshots.length === 0) return;
 
+        // Sort snapshots by timestamp (timeline order)
+        const sortedSnapshots = [...this.snapshots].sort((a, b) => a.timestamp - b.timestamp);
+
         let prevSnapshot = null;
 
         if (this.currentSnapshotId) {
-            // Find current snapshot index
-            const currentIndex = this.snapshots.findIndex(s => s.id === this.currentSnapshotId);
+            // Find current snapshot index in sorted array
+            const currentIndex = sortedSnapshots.findIndex(s => s.id === this.currentSnapshotId);
             if (currentIndex > 0) {
-                prevSnapshot = this.snapshots[currentIndex - 1];
+                prevSnapshot = sortedSnapshots[currentIndex - 1];
             }
         } else {
-            // No snapshot selected, select the last one
-            prevSnapshot = this.snapshots[this.snapshots.length - 1];
+            // No snapshot selected, select the last one (latest timestamp)
+            prevSnapshot = sortedSnapshots[sortedSnapshots.length - 1];
         }
 
         if (prevSnapshot) {
