@@ -268,9 +268,39 @@ const DrawingTool = {
                             this.autoSave();
                             
                         } else if (this.currentTool === 'draw') {
-                            // For draw/pen tool, fire the fabric mouse event
+                            // For draw/pen tool, simulate the drawing start
                             const pointer = this.canvas.getPointer(e);
-                            this.canvas.fire('mouse:down', { e: e, pointer: pointer });
+                            
+                            // Manually trigger Fabric's drawing sequence
+                            if (this.canvas.isDrawingMode && this.canvas.freeDrawingBrush) {
+                                // Start the path
+                                this.canvas.freeDrawingBrush.onMouseDown(pointer, { e: e });
+                                
+                                // Set up handlers to continue the stroke
+                                const handleDrawMove = (moveEvent) => {
+                                    if (this.canvas.isDrawingMode) {
+                                        const movePointer = this.canvas.getPointer(moveEvent);
+                                        this.canvas.freeDrawingBrush.onMouseMove(movePointer, { e: moveEvent });
+                                    }
+                                };
+                                
+                                const handleDrawUp = (upEvent) => {
+                                    if (this.canvas.isDrawingMode && this.canvas.freeDrawingBrush) {
+                                        const upPointer = this.canvas.getPointer(upEvent);
+                                        this.canvas.freeDrawingBrush.onMouseUp({ e: upEvent });
+                                    }
+                                    
+                                    // Remove handlers
+                                    document.removeEventListener('mousemove', handleDrawMove);
+                                    document.removeEventListener('mouseup', handleDrawUp);
+                                    
+                                    // Auto-save
+                                    setTimeout(() => this.autoSave(), 100);
+                                };
+                                
+                                document.addEventListener('mousemove', handleDrawMove);
+                                document.addEventListener('mouseup', handleDrawUp);
+                            }
                         }
                     }
                 }
