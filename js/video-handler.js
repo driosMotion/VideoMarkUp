@@ -159,6 +159,7 @@ const VideoHandler = {
         this.video.addEventListener('loadedmetadata', async () => {
             // Load snapshots after video metadata is loaded
             const snapshots = await Storage.getSnapshots(projectId);
+            SnapshotManager.snapshots = snapshots; // Store in manager
             snapshots.forEach(snapshot => {
                 SnapshotManager.addSnapshotToList(snapshot);
                 SnapshotManager.addTimelineMarker(snapshot);
@@ -187,6 +188,24 @@ const VideoHandler = {
         } else {
             wrapper.classList.remove('vertical');
         }
+
+        // Initialize drawing canvas overlay with video DISPLAY dimensions
+        // Use a small delay to ensure video layout is complete
+        setTimeout(() => {
+            if (window.DrawingTool && !window.DrawingTool.canvas) {
+                const videoRect = this.video.getBoundingClientRect();
+                const displayWidth = videoRect.width;
+                const displayHeight = videoRect.height;
+                
+                window.DrawingTool.initCanvas(displayWidth, displayHeight);
+                
+                const canvasEl = document.getElementById('mainDrawingCanvas');
+                canvasEl.style.width = displayWidth + 'px';
+                canvasEl.style.height = displayHeight + 'px';
+                
+                console.log('Initial canvas setup:', displayWidth, 'x', displayHeight);
+            }
+        }, 100);
     },
 
     /**
@@ -208,14 +227,24 @@ const VideoHandler = {
         document.querySelector('.play-icon').hidden = true;
         document.querySelector('.pause-icon').hidden = false;
         
-        // Reset quick comment bar when playback resumes
-        const quickCommentInput = document.getElementById('quickCommentInput');
-        if (quickCommentInput) {
-            quickCommentInput.value = '';
+        // Reset comment bar when playback resumes
+        const commentInputInline = document.getElementById('commentInputInline');
+        if (commentInputInline) {
+            commentInputInline.innerHTML = '';
             // Reset snapshot reference in SnapshotManager
             if (window.SnapshotManager) {
                 window.SnapshotManager.quickCommentSnapshotId = null;
             }
+        }
+
+        // Hide markups during playback
+        if (window.DrawingTool) {
+            window.DrawingTool.hideMarkups();
+        }
+
+        // Exit inline edit mode if active
+        if (window.SnapshotManager && window.SnapshotManager.currentSnapshotId) {
+            window.SnapshotManager.exitInlineEditMode();
         }
     },
 
@@ -226,6 +255,12 @@ const VideoHandler = {
         this.isPlaying = false;
         document.querySelector('.play-icon').hidden = false;
         document.querySelector('.pause-icon').hidden = true;
+
+        // Display markups if at a snapshot timestamp
+        if (window.SnapshotManager) {
+            const currentTime = this.getCurrentTime();
+            window.SnapshotManager.displayMarkupsAtTimestamp(currentTime);
+        }
     },
 
     /**

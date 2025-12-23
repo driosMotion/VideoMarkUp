@@ -1,6 +1,6 @@
 /**
- * Snapshot Manager Module
- * Handles capturing, storing, and displaying snapshots
+ * Snapshot Manager Module - Inline Editing Version
+ * Handles capturing, storing, and displaying snapshots with inline editing
  */
 
 const SnapshotManager = {
@@ -16,74 +16,80 @@ const SnapshotManager = {
     },
 
     /**
+     * Find a snapshot at the current video timestamp
+     * @param {number} timestamp - Video timestamp in seconds
+     * @returns {Promise<Object|null>} Snapshot or null
+     */
+    async findSnapshotAtTime(timestamp) {
+        const snapshots = await Storage.getSnapshotsForProject(VideoHandler.currentProjectId);
+        // Allow 0.1 second tolerance for floating point comparison
+        return snapshots.find(s => Math.abs(s.timestamp - timestamp) < 0.1) || null;
+    },
+
+    /**
      * Set up event listeners
      */
     setupEventListeners() {
-        const modalClose = document.getElementById('modalClose');
-        const saveBtn = document.getElementById('saveSnapshotBtn');
-        const deleteBtn = document.getElementById('deleteSnapshotBtn');
-        const modal = document.getElementById('snapshotModal');
-        const commentInput = document.getElementById('commentInput');
-        const quickCommentInput = document.getElementById('quickCommentInput');
+        const commentInputInline = document.getElementById('commentInputInline');
 
-        modalClose.addEventListener('click', () => this.closeModal());
-        saveBtn.addEventListener('click', () => this.saveAndClose());
-        deleteBtn.addEventListener('click', () => this.deleteCurrentSnapshot());
-
-        // Quick comment - auto-create snapshot on first letter
-        if (quickCommentInput) {
-            quickCommentInput.addEventListener('input', (e) => {
-                this.handleQuickComment(e.target.value);
+        // Comment input - auto-create snapshot on first character
+        if (commentInputInline) {
+            commentInputInline.addEventListener('input', () => {
+                this.handleCommentInput();
+                // Auto-save comment changes if editing
+                if (this.currentSnapshotId) {
+                    this.triggerAutoSave();
+                }
             });
         }
 
-        // Comment color picker - apply to selected text
-        document.querySelectorAll('.comment-color-btn').forEach(btn => {
+        // Inline tag buttons
+        document.querySelectorAll('.tag-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.applyColorToSelection(btn.dataset.color);
+                btn.classList.toggle('active');
+                // Auto-save tag changes
+                if (this.currentSnapshotId) {
+                    this.triggerAutoSave();
+                }
             });
         });
 
-        // Close modal on backdrop click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                this.closeModal();
-            }
-        });
-
-        // Close modal on Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !modal.hidden) {
-                this.closeModal();
-            }
+        // Tag hours input
+        document.querySelectorAll('.tag-hours-input').forEach(input => {
+            input.addEventListener('change', () => {
+                // Auto-save hour changes
+                if (this.currentSnapshotId) {
+                    this.triggerAutoSave();
+                }
+            });
         });
     },
 
     /**
-     * Handle quick comment input
-     * @param {string} value - Comment text
+     * Handle comment input
      */
-    async handleQuickComment(value) {
+    async handleCommentInput() {
         if (!VideoHandler.currentProjectId) return;
 
-        // On first character, create snapshot
-        if (value.length === 1 && !this.quickCommentSnapshotId) {
-            await this.captureSnapshotWithComment(value);
-        } else if (this.quickCommentSnapshotId && value.length > 0) {
-            // Update existing snapshot comment
-            await Storage.updateSnapshot(this.quickCommentSnapshotId, {
-                comment: value
-            });
-            this.updateSnapshotCard(this.quickCommentSnapshotId, { comment: value });
-        } else if (value.length === 0) {
-            // Reset if comment is cleared
-            this.quickCommentSnapshotId = null;
+        const commentInputInline = document.getElementById('commentInputInline');
+        const text = commentInputInline.textContent.trim();
+        const html = commentInputInline.innerHTML;
+
+        // If already editing a snapshot (either via click or quick comment), just auto-save
+        if (this.currentSnapshotId || this.quickCommentSnapshotId) {
+            this.triggerAutoSave();
+            return;
+        }
+
+        // Only create new snapshot if no snapshot is being edited and text is entered
+        if (text.length > 0) {
+            await this.captureSnapshotWithComment(html);
         }
     },
 
     /**
-     * Capture snapshot with initial comment text
-     * @param {string} initialComment - Initial comment text
+     * Capture snapshot with initial comment and enter edit mode
+     * @param {string} initialComment - Initial comment HTML
      */
     async captureSnapshotWithComment(initialComment = '') {
         if (!VideoHandler.currentProjectId) {
@@ -113,8 +119,9 @@ const SnapshotManager = {
             tags: []
         });
 
-        // Store reference for updating
+        // Store reference (both IDs for compatibility)
         this.quickCommentSnapshotId = snapshotId;
+        this.currentSnapshotId = snapshotId;
 
         // Get the full snapshot data
         const snapshot = await Storage.getSnapshot(snapshotId);
@@ -131,6 +138,213 @@ const SnapshotManager = {
 
         // Update count
         this.updateSnapshotCount();
+
+        // Enter inline edit mode immediately (preserve comment to avoid cursor jump)
+        this.enterInlineEditMode(snapshotId, imageData, null, true);
+    },
+
+    /**
+     * Enter inline editing mode for a snapshot
+     * @param {number} snapshotId - Snapshot ID
+     * @param {string} imageData - Base64 image data
+     * @param {Object} fabricData - Saved Fabric.js JSON
+     * @param {boolean} preserveComment - Don't reload comment (preserve cursor)
+     */
+    async enterInlineEditMode(snapshotId, imageData = null, fabricData = null, preserveComment = false) {
+        // If no image data provided, fetch snapshot
+        if (!imageData) {
+            const snapshot = await Storage.getSnapshot(snapshotId);
+            if (!snapshot) return;
+            imageData = snapshot.originalImage;
+            fabricData = snapshot.fabricData;
+        }
+
+        this.currentSnapshotId = snapshotId;
+
+        // Load snapshot data into inline panels
+        await this.loadSnapshotDataInline(snapshotId, preserveComment);
+
+        // Initialize drawing tool with this snapshot
+        DrawingTool.enterEditMode(snapshotId, imageData, fabricData);
+
+        if (!preserveComment) {
+            App.showToast('Edit mode active', 'info');
+        }
+    },
+
+    /**
+     * Load snapshot data into inline panels
+     * @param {number} snapshotId - Snapshot ID
+     * @param {boolean} skipComment - Skip reloading comment (preserve cursor)
+     */
+    async loadSnapshotDataInline(snapshotId, skipComment = false) {
+        const snapshot = await Storage.getSnapshot(snapshotId);
+        if (!snapshot) return;
+
+        // Load tags
+        const tagButtons = document.querySelectorAll('.tag-btn');
+        tagButtons.forEach(btn => {
+            const tagName = btn.dataset.tag;
+            if (snapshot.tags && snapshot.tags.includes(tagName)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        // Load tag hours
+        document.querySelectorAll('.tag-hours-input').forEach(input => {
+            const tagName = input.dataset.tag;
+            if (snapshot.tagHours && snapshot.tagHours[tagName]) {
+                input.value = snapshot.tagHours[tagName];
+            } else {
+                input.value = '';
+            }
+        });
+
+        // Load comment only if not skipping (to preserve cursor position)
+        if (!skipComment) {
+            const commentInputInline = document.getElementById('commentInputInline');
+            commentInputInline.innerHTML = snapshot.comment || '';
+        }
+    },
+
+    /**
+     * Clear inline panels (reset to empty state)
+     */
+    clearInlinePanels() {
+        // Clear tags
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+
+        // Clear tag hours
+        document.querySelectorAll('.tag-hours-input').forEach(input => {
+            input.value = '';
+        });
+
+        // Clear comment
+        const commentInputInline = document.getElementById('commentInputInline');
+        if (commentInputInline) {
+            commentInputInline.innerHTML = '';
+        }
+    },
+
+    /**
+     * Trigger auto-save (debounced)
+     */
+    triggerAutoSave() {
+        if (!this.currentSnapshotId) return;
+
+        // Debounce auto-save
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+
+        this.autoSaveTimeout = setTimeout(async () => {
+            const fabricData = DrawingTool.canvas ? DrawingTool.getCanvasData() : null;
+            await this.saveInlineEdit(this.currentSnapshotId, fabricData, true);
+        }, 500);
+    },
+
+    /**
+     * Save inline edits to snapshot
+     * @param {number} snapshotId - Snapshot ID
+     * @param {Object} fabricData - Fabric.js canvas data
+     * @param {boolean} silent - Don't clear panels or show toast (for auto-save)
+     */
+    async saveInlineEdit(snapshotId, fabricData, silent = false) {
+        const snapshot = await Storage.getSnapshot(snapshotId);
+        if (!snapshot) return;
+
+        // Collect data from inline panels
+        const comment = document.getElementById('commentInputInline').innerHTML;
+        
+        // Get active tags
+        const tags = [];
+        document.querySelectorAll('.tag-btn.active').forEach(btn => {
+            tags.push(btn.dataset.tag);
+        });
+
+        // Get tag hours
+        const tagHours = {};
+        document.querySelectorAll('.tag-hours-input').forEach(input => {
+            if (input.value) {
+                tagHours[input.dataset.tag] = parseFloat(input.value);
+            }
+        });
+
+        // Generate marked up image
+        let markedUpImage = null;
+        if (fabricData && DrawingTool.canvas) {
+            markedUpImage = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
+        }
+
+        // Update storage
+        await Storage.updateSnapshot(snapshotId, {
+            comment,
+            tags,
+            tagHours,
+            fabricData,
+            markedUpImage
+        });
+
+        // Update card in list
+        this.updateSnapshotCard(snapshotId, { comment, tags, tagHours, fabricData });
+
+        // Only clear when explicitly exiting (not auto-saving)
+        if (!silent) {
+            // Clear comment bar
+            const commentInputInline = document.getElementById('commentInputInline');
+            if (commentInputInline) {
+                commentInputInline.innerHTML = '';
+            }
+            this.quickCommentSnapshotId = null;
+
+            // Clear inline panels
+            this.clearInlinePanels();
+        }
+    },
+
+    /**
+     * Exit inline edit mode
+     */
+    exitInlineEditMode() {
+        this.currentSnapshotId = null;
+        this.quickCommentSnapshotId = null;
+        DrawingTool.exitEditMode();
+    },
+
+    /**
+     * Apply color to selected text in inline comment
+     * @param {string} color - Hex color code
+     */
+    applyColorToSelection(color) {
+        const commentInput = document.getElementById('commentInputInline');
+        commentInput.focus();
+        
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        
+        const range = selection.getRangeAt(0);
+        
+        if (range.collapsed) return;
+        
+        const span = document.createElement('span');
+        span.style.color = color;
+        
+        try {
+            const contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+            
+            range.setStartAfter(span);
+            range.setEndAfter(span);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } catch (e) {
+            console.error('Error applying color:', e);
+        }
     },
 
     /**
@@ -142,108 +356,18 @@ const SnapshotManager = {
         
         if (cards.length === 0) return;
         
-        // Sort cards by data-timestamp attribute
         cards.sort((a, b) => {
             const timeA = parseFloat(a.dataset.timestamp) || 0;
             const timeB = parseFloat(b.dataset.timestamp) || 0;
             return timeA - timeB;
         });
 
-        // Clear and re-append in sorted order
         cards.forEach(card => {
             card.remove();
         });
         cards.forEach(card => {
             listEl.appendChild(card);
         });
-    },
-
-    /**
-     * Apply color to selected text in comment
-     * @param {string} color - Hex color code
-     */
-    applyColorToSelection(color) {
-        const commentInput = document.getElementById('commentInput');
-        commentInput.focus();
-        
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        
-        const range = selection.getRangeAt(0);
-        
-        // If no text is selected, do nothing
-        if (range.collapsed) {
-            return;
-        }
-        
-        // Create a span with the color
-        const span = document.createElement('span');
-        span.style.color = color;
-        
-        try {
-            // Extract the selected content
-            const contents = range.extractContents();
-            span.appendChild(contents);
-            range.insertNode(span);
-            
-            // Move cursor to end of inserted span
-            range.setStartAfter(span);
-            range.setEndAfter(span);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        } catch (e) {
-            console.error('Error applying color:', e);
-        }
-    },
-
-    /**
-     * Capture a snapshot from current video frame
-     */
-    async captureSnapshot() {
-        if (!VideoHandler.currentProjectId) {
-            App.showToast('No video loaded', 'error');
-            return;
-        }
-
-        // Pause video
-        VideoHandler.video.pause();
-
-        // Flash effect
-        const wrapper = document.querySelector('.video-wrapper');
-        wrapper.classList.add('flash');
-        setTimeout(() => wrapper.classList.remove('flash'), 150);
-
-        // Capture frame
-        const canvas = VideoHandler.captureFrame();
-        const imageData = canvas.toDataURL('image/png');
-        const timestamp = VideoHandler.getCurrentTime();
-
-        // Save to storage
-        const snapshotId = await Storage.addSnapshot({
-            projectId: VideoHandler.currentProjectId,
-            timestamp: timestamp,
-            originalImage: imageData,
-            comment: '',
-            tags: []
-        });
-
-        // Get the full snapshot data
-        const snapshot = await Storage.getSnapshot(snapshotId);
-        this.snapshots.push(snapshot);
-
-        // Add to list
-        this.addSnapshotToList(snapshot);
-
-        // Sort snapshots by timecode
-        this.sortSnapshotsByTimecode();
-
-        // Add marker to timeline
-        this.addTimelineMarker(snapshot);
-
-        // Update count
-        this.updateSnapshotCount();
-
-        App.showToast('Snapshot captured!', 'success');
     },
 
     /**
@@ -254,7 +378,6 @@ const SnapshotManager = {
         const list = document.getElementById('snapshotsList');
         const emptyState = document.getElementById('emptyState');
         
-        // Hide empty state
         if (emptyState) {
             emptyState.hidden = true;
         }
@@ -262,7 +385,7 @@ const SnapshotManager = {
         const card = document.createElement('div');
         card.className = 'snapshot-card';
         card.dataset.id = snapshot.id;
-        card.dataset.timestamp = snapshot.timestamp; // Store timestamp for sorting
+        card.dataset.timestamp = snapshot.timestamp;
         
         if (snapshot.fabricData) {
             card.classList.add('has-markup');
@@ -292,23 +415,105 @@ const SnapshotManager = {
             </div>
         `;
 
-        // Delete button click
+        // Delete button - hold for 2 seconds to delete
         const deleteBtn = card.querySelector('.snapshot-card-delete');
-        deleteBtn.addEventListener('click', async (e) => {
+        let deleteHoldTimer = null;
+        let deleteProgress = null;
+        
+        deleteBtn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
-            await this.deleteSnapshotById(snapshot.id);
+            
+            // Create progress overlay
+            deleteProgress = document.createElement('div');
+            deleteProgress.className = 'delete-progress';
+            deleteBtn.appendChild(deleteProgress);
+            
+            // Start animation
+            deleteProgress.style.animation = 'deleteProgress 2s linear forwards';
+            
+            // Set timer for actual deletion
+            deleteHoldTimer = setTimeout(async () => {
+                await this.deleteSnapshotById(snapshot.id, true); // true = no confirmation
+                if (deleteProgress && deleteProgress.parentNode) {
+                    deleteProgress.remove();
+                }
+            }, 2000);
         });
-
-        // Click to open modal
-        card.addEventListener('click', () => this.openSnapshot(snapshot.id));
-
-        // Double-click to seek
-        card.addEventListener('dblclick', (e) => {
+        
+        const cancelDelete = () => {
+            if (deleteHoldTimer) {
+                clearTimeout(deleteHoldTimer);
+                deleteHoldTimer = null;
+            }
+            if (deleteProgress && deleteProgress.parentNode) {
+                deleteProgress.remove();
+            }
+        };
+        
+        deleteBtn.addEventListener('mouseup', cancelDelete);
+        deleteBtn.addEventListener('mouseleave', cancelDelete);
+        
+        // Touch support
+        deleteBtn.addEventListener('touchstart', (e) => {
             e.stopPropagation();
-            VideoHandler.seekTo(snapshot.timestamp);
+            e.preventDefault();
+            
+            // Trigger same as mousedown
+            deleteProgress = document.createElement('div');
+            deleteProgress.className = 'delete-progress';
+            deleteBtn.appendChild(deleteProgress);
+            deleteProgress.style.animation = 'deleteProgress 2s linear forwards';
+            
+            deleteHoldTimer = setTimeout(async () => {
+                await this.deleteSnapshotById(snapshot.id, true);
+                if (deleteProgress && deleteProgress.parentNode) {
+                    deleteProgress.remove();
+                }
+            }, 2000);
         });
+        
+        deleteBtn.addEventListener('touchend', cancelDelete);
+        deleteBtn.addEventListener('touchcancel', cancelDelete);
+
+        // Click to seek and enter edit mode
+        card.addEventListener('click', () => this.openSnapshotInline(snapshot.id));
 
         list.appendChild(card);
+    },
+
+    /**
+     * Open snapshot inline (seek and enter edit mode)
+     * @param {number} id - Snapshot ID
+     */
+    async openSnapshotInline(id) {
+        const snapshot = await Storage.getSnapshot(id);
+        if (!snapshot) return;
+
+        // Seek to snapshot timestamp
+        VideoHandler.seekTo(snapshot.timestamp);
+        VideoHandler.video.pause();
+
+        // Set both IDs to prevent duplicate creation
+        this.currentSnapshotId = id;
+        this.quickCommentSnapshotId = id;
+
+        // Enter edit mode (which will also set currentSnapshotId, but that's fine)
+        await this.enterInlineEditMode(id, snapshot.originalImage, snapshot.fabricData);
+    },
+
+    /**
+     * Display snapshot markups when video is at a mark (read-only)
+     * @param {number} timestamp - Current video timestamp
+     */
+    async displayMarkupsAtTimestamp(timestamp) {
+        // Find snapshot at this timestamp (within 0.1s tolerance)
+        const snapshot = this.snapshots.find(s => Math.abs(s.timestamp - timestamp) < 0.1);
+        
+        if (snapshot) {
+            DrawingTool.displayMarkups(snapshot.originalImage, snapshot.fabricData);
+        } else {
+            DrawingTool.hideMarkups();
+        }
     },
 
     /**
@@ -342,73 +547,6 @@ const SnapshotManager = {
     },
 
     /**
-     * Open snapshot in modal for editing
-     * @param {number} id - Snapshot ID
-     */
-    async openSnapshot(id) {
-        const snapshot = await Storage.getSnapshot(id);
-        if (!snapshot) return;
-
-        this.currentSnapshotId = id;
-
-        // Update modal header
-        document.getElementById('modalTimecode').textContent = 
-            VideoHandler.formatTimecode(snapshot.timestamp);
-
-        // Initialize drawing canvas with snapshot image
-        DrawingTool.loadImage(snapshot.originalImage, snapshot.fabricData);
-
-        // Set comment (HTML content)
-        const commentInput = document.getElementById('commentInput');
-        commentInput.innerHTML = snapshot.comment || '';
-
-        // Set tags and hours
-        TagManager.setTags(snapshot.tags || [], snapshot.tagHours || {});
-
-        // Show modal
-        document.getElementById('snapshotModal').hidden = false;
-        document.body.style.overflow = 'hidden';
-    },
-
-    /**
-     * Close the modal
-     */
-    closeModal() {
-        document.getElementById('snapshotModal').hidden = true;
-        document.body.style.overflow = '';
-        this.currentSnapshotId = null;
-    },
-
-    /**
-     * Save current snapshot and close modal
-     */
-    async saveAndClose() {
-        if (!this.currentSnapshotId) return;
-
-        // Get current state (HTML content for rich text)
-        const comment = document.getElementById('commentInput').innerHTML;
-        const tags = TagManager.getTags();
-        const tagHours = TagManager.getTagHours();
-        const fabricData = DrawingTool.getCanvasData();
-        const markedUpImage = DrawingTool.getMarkedUpImage();
-
-        // Update storage
-        await Storage.updateSnapshot(this.currentSnapshotId, {
-            comment,
-            tags,
-            tagHours,
-            fabricData,
-            markedUpImage
-        });
-
-        // Update card in list
-        this.updateSnapshotCard(this.currentSnapshotId, { comment, tags, tagHours, fabricData });
-
-        App.showToast('Snapshot saved!', 'success');
-        this.closeModal();
-    },
-
-    /**
      * Update a snapshot card in the list
      * @param {number} id - Snapshot ID
      * @param {Object} data - Updated data
@@ -417,7 +555,6 @@ const SnapshotManager = {
         const card = document.querySelector(`.snapshot-card[data-id="${id}"]`);
         if (!card) return;
 
-        // Update tags with hours
         const tagsContainer = card.querySelector('.snapshot-card-tags');
         tagsContainer.innerHTML = (data.tags || []).map(tag => {
             const hours = data.tagHours && data.tagHours[tag];
@@ -425,11 +562,9 @@ const SnapshotManager = {
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
         }).join('');
 
-        // Update comment (HTML content)
         const commentEl = card.querySelector('.snapshot-card-comment');
         commentEl.innerHTML = data.comment || '';
 
-        // Update markup indicator
         if (data.fabricData) {
             card.classList.add('has-markup');
         } else {
@@ -438,48 +573,35 @@ const SnapshotManager = {
     },
 
     /**
-     * Delete current snapshot (from modal)
-     */
-    async deleteCurrentSnapshot() {
-        if (!this.currentSnapshotId) return;
-
-        if (!confirm('Are you sure you want to delete this snapshot?')) return;
-
-        await this.deleteSnapshotById(this.currentSnapshotId);
-        this.closeModal();
-    },
-
-    /**
      * Delete a snapshot by ID
      * @param {number} id - Snapshot ID
+     * @param {boolean} skipConfirm - Skip confirmation dialog
      */
-    async deleteSnapshotById(id) {
-        if (!confirm('Delete this snapshot?')) return;
+    async deleteSnapshotById(id, skipConfirm = false) {
+        if (!skipConfirm && !confirm('Delete this snapshot?')) return;
 
-        // Remove from storage
+        // Exit edit mode if this snapshot is being edited
+        if (this.currentSnapshotId === id) {
+            this.exitInlineEditMode();
+        }
+
         await Storage.deleteSnapshot(id);
 
-        // Remove card from list
         const card = document.querySelector(`.snapshot-card[data-id="${id}"]`);
         if (card) card.remove();
 
-        // Remove timeline marker
         const marker = document.querySelector(`.snapshot-marker[data-id="${id}"]`);
         if (marker) marker.remove();
 
-        // Update count
         this.updateSnapshotCount();
 
-        // Show empty state if no snapshots
         const count = document.querySelectorAll('.snapshot-card').length;
         if (count === 0) {
             document.getElementById('emptyState').hidden = false;
         }
 
-        // Remove from local array
         this.snapshots = this.snapshots.filter(s => s.id !== id);
 
-        // If this was the current snapshot in modal, clear it
         if (this.currentSnapshotId === id) {
             this.currentSnapshotId = null;
         }
@@ -532,6 +654,4 @@ const SnapshotManager = {
     }
 };
 
-// Make SnapshotManager globally available
 window.SnapshotManager = SnapshotManager;
-

@@ -7,20 +7,46 @@ const App = {
     /**
      * Initialize the application
      */
-    init() {
-        // Initialize all modules
-        VideoHandler.init();
-        SnapshotManager.init();
-        DrawingTool.init();
-        TagManager.init();
-        PDFExporter.init();
-        ProjectSharing.init();
-        ProjectManager.init();
+    async init() {
+        try {
+            // Initialize all modules
+            VideoHandler.init();
+            SnapshotManager.init();
+            DrawingTool.init();
+            TagManager.init();
+            PDFExporter.init();
+            ProjectSharing.init();
+            ProjectManager.init();
 
-        // Set up keyboard shortcuts
-        this.setupKeyboardShortcuts();
+            // Set up keyboard shortcuts
+            this.setupKeyboardShortcuts();
 
-        console.log('Video Markup initialized');
+            // Auto-load the most recently edited project
+            await this.loadLatestProject();
+
+            // Initialize tag editor after everything else is ready
+            TagEditor.init();
+
+            console.log('Video Markup initialized');
+        } catch (error) {
+            console.error('App initialization error:', error);
+            this.showToast('Error initializing app. Check console.', 'error');
+        }
+    },
+
+    /**
+     * Load the most recently edited project
+     */
+    async loadLatestProject() {
+        try {
+            const latestProject = await Storage.getLatestProject();
+            if (latestProject) {
+                console.log('Auto-loading latest project:', latestProject.name);
+                await VideoHandler.loadProject(latestProject.id);
+            }
+        } catch (error) {
+            console.error('Failed to load latest project:', error);
+        }
     },
 
     /**
@@ -28,41 +54,43 @@ const App = {
      */
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
-            // Don't trigger shortcuts when typing in inputs
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            // Don't trigger shortcuts when typing in inputs or contenteditable
+            if (e.target.tagName === 'INPUT' || 
+                e.target.tagName === 'TEXTAREA' || 
+                e.target.isContentEditable) {
                 return;
             }
 
-            const modal = document.getElementById('snapshotModal');
-            const isModalOpen = !modal.hidden;
+            const isEditMode = SnapshotManager.currentSnapshotId !== null;
 
-            // Global shortcuts
-            switch (e.code) {
-                case 'Space':
-                    if (!isModalOpen && VideoHandler.video.src) {
-                        e.preventDefault();
-                        VideoHandler.togglePlay();
-                    }
-                    break;
-
-                case 'ArrowLeft':
-                    if (!isModalOpen && VideoHandler.video.src) {
-                        e.preventDefault();
-                        VideoHandler.prevFrame();
-                    }
-                    break;
-
-                case 'ArrowRight':
-                    if (!isModalOpen && VideoHandler.video.src) {
-                        e.preventDefault();
-                        VideoHandler.nextFrame();
-                    }
-                    break;
-
+            // Space bar works in both modes
+            if (e.code === 'Space' && VideoHandler.video.src) {
+                e.preventDefault();
+                VideoHandler.togglePlay();
+                return;
             }
 
-            // Modal shortcuts (when modal is open)
-            if (isModalOpen) {
+            // Navigation shortcuts (when NOT in edit mode)
+            if (!isEditMode) {
+                switch (e.code) {
+                    case 'ArrowLeft':
+                        if (VideoHandler.video.src) {
+                            e.preventDefault();
+                            VideoHandler.prevFrame();
+                        }
+                        break;
+
+                    case 'ArrowRight':
+                        if (VideoHandler.video.src) {
+                            e.preventDefault();
+                            VideoHandler.nextFrame();
+                        }
+                        break;
+                }
+            }
+
+            // Edit mode shortcuts (when editing a snapshot inline)
+            if (isEditMode) {
                 switch (e.code) {
                     case 'KeyV':
                         DrawingTool.setTool('select');
@@ -85,9 +113,6 @@ const App = {
                         break;
                     case 'KeyT':
                         DrawingTool.setTool('text');
-                        break;
-                    case 'KeyE':
-                        DrawingTool.setTool('eraser');
                         break;
                     case 'KeyZ':
                         if (e.metaKey || e.ctrlKey) {

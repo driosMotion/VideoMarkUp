@@ -1,133 +1,384 @@
 /**
- * Drawing Tool Module
- * Handles Fabric.js canvas for image markup
+ * Drawing Tool Module - Inline Canvas Version
+ * Handles Fabric.js canvas overlay on video for markup
  */
 
 const DrawingTool = {
     canvas: null,
     currentTool: 'select',
     currentColor: '#ff3b3b',
-    brushSize: 4,
+    brushSize: 6,
     isDrawing: false,
     startPoint: null,
     currentShape: null,
-    backgroundImage: null,
+    activeSnapshotId: null,
 
     /**
-     * Initialize drawing tool
+     * Initialize drawing tool with inline canvas
      */
     init() {
-        this.setupEventListeners();
+        this.setupInlineEventListeners();
     },
 
     /**
-     * Set up event listeners
+     * Initialize the fabric canvas on the video overlay
      */
-    setupEventListeners() {
+    initCanvas(width = null, height = null) {
+        const canvasEl = document.getElementById('mainDrawingCanvas');
+
+        // If no dimensions provided, use video display dimensions
+        if (!width || !height) {
+            const videoEl = document.getElementById('videoPlayer');
+            const rect = videoEl.getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+        }
+
+        // Only create canvas once
+        if (!this.canvas) {
+            // Set canvas dimensions (both internal and display size are the same)
+            canvasEl.width = width;
+            canvasEl.height = height;
+            canvasEl.style.width = width + 'px';
+            canvasEl.style.height = height + 'px';
+
+            // Initialize Fabric canvas with same dimensions
+            this.canvas = new fabric.Canvas('mainDrawingCanvas', {
+                width: width,
+                height: height,
+                selection: true,
+                preserveObjectStacking: true,
+                backgroundColor: null,
+                renderOnAddRemove: true,
+                enableRetinaScaling: false
+            });
+
+            this.setupCanvasEvents();
+        } else {
+            // Just resize existing canvas
+            canvasEl.width = width;
+            canvasEl.height = height;
+            canvasEl.style.width = width + 'px';
+            canvasEl.style.height = height + 'px';
+            
+            this.canvas.setDimensions({
+                width: width,
+                height: height
+            });
+        }
+        
+        this.setTool('select');
+    },
+
+    /**
+     * Set up event listeners for inline tools
+     */
+    setupInlineEventListeners() {
         // Tool buttons
         document.querySelectorAll('.tool-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.setTool(btn.dataset.tool);
+            btn.addEventListener('click', async () => {
+                await this.setTool(btn.dataset.tool);
             });
         });
 
-        // Color swatches
+        // Color swatches - controls both drawing and text color
         document.querySelectorAll('.color-swatch').forEach(swatch => {
             swatch.addEventListener('click', () => {
                 document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
                 swatch.classList.add('active');
                 this.currentColor = swatch.dataset.color;
                 this.updateBrushColor();
+                
+                // Also apply to selected text in comment if any text is selected
+                if (window.SnapshotManager) {
+                    window.SnapshotManager.applyColorToSelection(swatch.dataset.color);
+                }
             });
         });
 
         // Brush size
-        const brushSizeSlider = document.getElementById('brushSize');
+        const brushSizeSlider = document.getElementById('brushSizeInline');
+        const brushSizeValue = document.getElementById('brushSizeValueInline');
         brushSizeSlider.addEventListener('input', (e) => {
             this.brushSize = parseInt(e.target.value);
-            document.getElementById('brushSizeValue').textContent = this.brushSize;
+            brushSizeValue.textContent = this.brushSize;
             this.updateBrushSize();
         });
 
         // Reference image upload
-        const uploadRefBtn = document.getElementById('uploadReferenceBtn');
-        const refInput = document.getElementById('referenceImageInput');
+        const uploadRefBtn = document.getElementById('uploadReferenceInlineBtn');
+        const refInput = document.getElementById('referenceImageInputInline');
         
         uploadRefBtn.addEventListener('click', () => refInput.click());
         refInput.addEventListener('change', (e) => {
             if (e.target.files[0]) {
                 this.addReferenceImage(e.target.files[0]);
-                e.target.value = ''; // Reset for future uploads
+                e.target.value = '';
             }
         });
 
         // Undo button
-        document.getElementById('undoBtn').addEventListener('click', () => this.undo());
+        document.getElementById('undoBtnInline').addEventListener('click', () => this.undo());
 
         // Clear button
-        document.getElementById('clearBtn').addEventListener('click', () => this.clearCanvas());
+        document.getElementById('clearBtnInline').addEventListener('click', () => this.clearCanvas());
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            if (this.canvas && this.activeSnapshotId) {
+                this.resizeCanvas();
+            }
+        });
     },
 
     /**
-     * Load an image into the canvas
-     * @param {string} imageData - Base64 image data
-     * @param {Object} fabricData - Saved Fabric.js JSON (optional)
+     * Resize canvas to match overlay/video display
      */
-    loadImage(imageData, fabricData = null) {
-        const container = document.getElementById('canvasContainer');
-        const canvasEl = document.getElementById('drawingCanvas');
+    resizeCanvas() {
+        if (!this.canvas || !this.activeSnapshotId) return;
+        
+        const overlayImg = document.getElementById('snapshotOverlay');
+        const canvasEl = document.getElementById('mainDrawingCanvas');
+        
+        // Get current display size
+        const rect = overlayImg.getBoundingClientRect();
+        const newDisplayWidth = rect.width;
+        const newDisplayHeight = rect.height;
+        
+        const currentWidth = this.canvas.getWidth();
+        const currentHeight = this.canvas.getHeight();
+        
+        // Only resize if dimensions changed significantly
+        if (Math.abs(currentWidth - newDisplayWidth) > 2 || 
+            Math.abs(currentHeight - newDisplayHeight) > 2) {
+            
+            // Save current state
+            const json = this.canvas.toJSON();
+            
+            // Resize canvas
+            canvasEl.width = newDisplayWidth;
+            canvasEl.height = newDisplayHeight;
+            canvasEl.style.width = newDisplayWidth + 'px';
+            canvasEl.style.height = newDisplayHeight + 'px';
+            
+            this.canvas.setDimensions({
+                width: newDisplayWidth,
+                height: newDisplayHeight
+            });
+            
+            // Restore state (objects will scale automatically)
+            this.canvas.loadFromJSON(json, () => {
+                this.canvas.renderAll();
+            });
+        }
+    },
 
-        // Create Fabric canvas
-        if (this.canvas) {
-            this.canvas.dispose();
+    /**
+     * Enter edit mode for a snapshot
+     * @param {number} snapshotId - Snapshot ID
+     * @param {string} imageData - Base64 image data
+     * @param {Object} fabricData - Saved Fabric.js JSON
+     */
+    enterEditMode(snapshotId, imageData, fabricData = null) {
+        this.activeSnapshotId = snapshotId;
+        
+        const overlayImg = document.getElementById('snapshotOverlay');
+        const videoEl = document.getElementById('videoPlayer');
+        const wrapper = document.querySelector('.video-wrapper');
+
+        // Pause video
+        if (!videoEl.paused) {
+            videoEl.pause();
         }
 
-        // Load image to get dimensions
-        const img = new Image();
-        img.onload = () => {
-            // Calculate canvas size to fit container while maintaining aspect ratio
-            const containerRect = container.getBoundingClientRect();
-            const maxWidth = containerRect.width - 40;
-            const maxHeight = containerRect.height - 40;
-            
-            let width = img.width;
-            let height = img.height;
-            
-            const scale = Math.min(maxWidth / width, maxHeight / height, 1);
-            width *= scale;
-            height *= scale;
+        // Load snapshot image into overlay
+        overlayImg.src = imageData;
+        overlayImg.hidden = false;
 
-            // Set canvas dimensions
-            canvasEl.width = width;
-            canvasEl.height = height;
+        // Wait for image to load to get dimensions
+        overlayImg.onload = () => {
+            // Small delay to ensure layout is complete
+            setTimeout(() => {
+                // Get the actual displayed size of the overlay after layout
+                const rect = overlayImg.getBoundingClientRect();
+                const displayWidth = rect.width;
+                const displayHeight = rect.height;
+                
+                // Initialize or resize canvas to match display
+                this.initCanvas(displayWidth, displayHeight);
 
-            // Initialize Fabric canvas
-            this.canvas = new fabric.Canvas('drawingCanvas', {
-                width: width,
-                height: height,
-                selection: true,
-                preserveObjectStacking: true
-            });
+                // Clear existing canvas
+                if (this.canvas) {
+                    this.canvas.clear();
+                }
 
-            // Set background image
-            fabric.Image.fromURL(imageData, (fabricImg) => {
-                fabricImg.scaleToWidth(width);
-                this.canvas.setBackgroundImage(fabricImg, this.canvas.renderAll.bind(this.canvas));
-                this.backgroundImage = fabricImg;
-
-                // Load saved fabric data if available
+                // Load saved markups if available
                 if (fabricData) {
                     this.loadCanvasData(fabricData);
                 }
-            });
-
-            // Set up canvas events
-            this.setupCanvasEvents();
-            
-            // Set default tool
-            this.setTool('select');
+                
+                // Enable drawing
+                wrapper.classList.add('editing');
+            }, 50);
         };
-        img.src = imageData;
+    },
+
+    /**
+     * Exit edit mode
+     */
+    exitEditMode() {
+        this.activeSnapshotId = null;
+        
+        // Hide snapshot overlay
+        const overlayImg = document.getElementById('snapshotOverlay');
+        if (overlayImg) {
+            overlayImg.hidden = true;
+            overlayImg.src = '';
+        }
+        
+        // Disable drawing
+        const wrapper = document.querySelector('.video-wrapper');
+        if (wrapper) {
+            wrapper.classList.remove('editing');
+        }
+
+        // Clear canvas only if it exists and is properly initialized
+        if (this.canvas && this.canvas.getContext) {
+            try {
+                this.canvas.clear();
+                this.canvas.renderAll();
+            } catch (e) {
+                console.warn('Could not clear canvas:', e);
+            }
+        }
+    },
+
+    /**
+     * Display a snapshot's markups (read-only)
+     * @param {string} imageData - Base64 image data
+     * @param {Object} fabricData - Saved Fabric.js JSON
+     */
+    displayMarkups(imageData, fabricData) {
+        const overlayImg = document.getElementById('snapshotOverlay');
+        
+        // Show snapshot overlay
+        overlayImg.src = imageData;
+        overlayImg.hidden = false;
+
+        overlayImg.onload = () => {
+            setTimeout(() => {
+                // Get displayed dimensions
+                const rect = overlayImg.getBoundingClientRect();
+                const displayWidth = rect.width;
+                const displayHeight = rect.height;
+                
+                // Initialize canvas with display dimensions
+                const canvasEl = document.getElementById('mainDrawingCanvas');
+                
+                if (!this.canvas) {
+                    this.initCanvas(displayWidth, displayHeight);
+                } else {
+                    this.canvas.dispose();
+                    this.initCanvas(displayWidth, displayHeight);
+                }
+
+                // Style canvas to match
+                canvasEl.style.width = displayWidth + 'px';
+                canvasEl.style.height = displayHeight + 'px';
+
+                this.canvas.clear();
+                
+                if (fabricData) {
+                    this.loadCanvasData(fabricData);
+                    
+                    // Make all objects non-selectable for display mode
+                    this.canvas.getObjects().forEach(obj => {
+                        obj.selectable = false;
+                        obj.evented = false;
+                    });
+                    
+                    this.canvas.selection = false;
+                    this.canvas.renderAll();
+                }
+            }, 50);
+        };
+    },
+
+    /**
+     * Hide markups
+     */
+    hideMarkups() {
+        // Hide snapshot overlay
+        const overlayImg = document.getElementById('snapshotOverlay');
+        if (overlayImg) {
+            overlayImg.hidden = true;
+            overlayImg.src = '';
+        }
+        
+        if (this.canvas && this.canvas.getContext) {
+            try {
+                this.canvas.clear();
+                this.canvas.renderAll();
+            } catch (e) {
+                console.warn('Could not clear canvas:', e);
+            }
+        }
+    },
+
+    /**
+     * Auto-save current snapshot
+     */
+    async autoSave() {
+        if (!this.activeSnapshotId) return;
+
+        // Debounce auto-save
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+
+        this.autoSaveTimeout = setTimeout(async () => {
+            const fabricData = this.getCanvasData();
+            // Pass silent=true to prevent clearing panels during auto-save
+            await SnapshotManager.saveInlineEdit(this.activeSnapshotId, fabricData, true);
+        }, 500); // Save 500ms after last change
+    },
+
+    /**
+     * Check if we need to auto-create a snapshot before drawing
+     */
+    async ensureSnapshotExists() {
+        console.log('ensureSnapshotExists called');
+        
+        // Only auto-create if video is paused and we're not already editing a snapshot
+        if (!VideoHandler.video || !VideoHandler.video.paused) {
+            console.log('Video not paused, skipping auto-snapshot');
+            return false;
+        }
+
+        // If we're already editing a snapshot, no need to create new one
+        if (this.activeSnapshotId) {
+            console.log('Already editing snapshot:', this.activeSnapshotId);
+            return true;
+        }
+
+        // Check if snapshot exists at current timestamp
+        const currentTime = VideoHandler.video.currentTime;
+        console.log('Current time:', currentTime);
+        
+        const existingSnapshot = await SnapshotManager.findSnapshotAtTime(currentTime);
+        
+        if (existingSnapshot) {
+            // Load existing snapshot for editing
+            console.log('Loading existing snapshot:', existingSnapshot.id);
+            await SnapshotManager.enterInlineEditMode(existingSnapshot.id);
+            return true;
+        } else {
+            // Create new snapshot
+            console.log('Creating new snapshot at', currentTime);
+            App.showToast('Creating snapshot...', 'info');
+            await SnapshotManager.captureSnapshotWithComment('');
+            return true;
+        }
     },
 
     /**
@@ -153,17 +404,42 @@ const DrawingTool = {
 
         this.canvas.on('mouse:up', () => {
             if (this.isDrawing && this.currentShape) {
-                this.canvas.setActiveObject(this.currentShape);
+                // Make newly created shape non-selectable (until switching to select tool)
+                if (this.currentTool !== 'select') {
+                    this.currentShape.selectable = false;
+                    this.currentShape.evented = false;
+                }
+                this.canvas.discardActiveObject();
             }
             this.isDrawing = false;
             this.currentShape = null;
             this.startPoint = null;
+            
+            // Auto-save after drawing
+            this.autoSave();
+        });
+
+        this.canvas.on('object:modified', () => {
+            this.autoSave();
+        });
+
+        // Auto-save after drawing mode (freehand)
+        this.canvas.on('path:created', (e) => {
+            // Make newly created path non-selectable if not in select mode
+            if (this.currentTool !== 'select' && e.path) {
+                e.path.selectable = false;
+                e.path.evented = false;
+            }
+            this.autoSave();
+        });
+
+        this.canvas.on('object:removed', () => {
+            this.autoSave();
         });
     },
 
     /**
      * Create a new shape at the pointer position
-     * @param {Object} pointer - Mouse pointer position
      */
     createShape(pointer) {
         const options = {
@@ -174,7 +450,9 @@ const DrawingTool = {
             strokeWidth: this.brushSize,
             selectable: true,
             originX: 'left',
-            originY: 'top'
+            originY: 'top',
+            opacity: 1,
+            strokeUniform: true
         };
 
         switch (this.currentTool) {
@@ -207,12 +485,13 @@ const DrawingTool = {
 
         if (this.currentShape) {
             this.canvas.add(this.currentShape);
+            this.canvas.renderAll();
+            console.log('Created shape:', this.currentTool, 'at', pointer);
         }
     },
 
     /**
      * Update shape during drawing
-     * @param {Object} pointer - Current mouse position
      */
     updateShape(pointer) {
         if (!this.currentShape || !this.startPoint) return;
@@ -248,12 +527,10 @@ const DrawingTool = {
                     y2: pointer.y
                 });
                 
-                // Remove old arrowhead if exists
                 if (this.currentShape.arrowHead) {
                     this.canvas.remove(this.currentShape.arrowHead);
                 }
                 
-                // Add arrowhead
                 const angle = Math.atan2(
                     pointer.y - this.startPoint.y,
                     pointer.x - this.startPoint.x
@@ -280,9 +557,8 @@ const DrawingTool = {
 
     /**
      * Set active tool
-     * @param {string} tool - Tool name
      */
-    setTool(tool) {
+    async setTool(tool) {
         this.currentTool = tool;
 
         // Update UI
@@ -290,76 +566,77 @@ const DrawingTool = {
             btn.classList.toggle('active', btn.dataset.tool === tool);
         });
 
-        // Update canvas container cursor class
-        const container = document.getElementById('canvasContainer');
-        container.className = 'canvas-container tool-' + tool;
+        // Auto-create snapshot when selecting a drawing tool (if video is paused)
+        if (['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool)) {
+            const created = await this.ensureSnapshotExists();
+            console.log('Snapshot ensured, result:', created);
+            
+            // Wait a bit for canvas to initialize if snapshot was just created
+            if (created && !this.canvas) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
 
-        if (!this.canvas) return;
+        if (!this.canvas) {
+            console.warn('No canvas available for tool:', tool);
+            return;
+        }
 
         // Configure canvas based on tool
         switch (tool) {
             case 'select':
                 this.canvas.isDrawingMode = false;
                 this.canvas.selection = true;
+                // Make all objects selectable
+                this.canvas.forEachObject(obj => {
+                    obj.selectable = true;
+                    obj.evented = true;
+                });
                 break;
 
             case 'draw':
                 this.canvas.isDrawingMode = true;
+                this.canvas.selection = false;
+                // Make all objects non-selectable during drawing
+                this.canvas.forEachObject(obj => {
+                    obj.selectable = false;
+                    obj.evented = false;
+                });
+                this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
                 this.canvas.freeDrawingBrush.color = this.currentColor;
                 this.canvas.freeDrawingBrush.width = this.brushSize;
-                break;
-
-            case 'eraser':
-                this.canvas.isDrawingMode = true;
-                this.canvas.freeDrawingBrush.color = '#000000';
-                this.canvas.freeDrawingBrush.width = this.brushSize * 3;
-                // We'll handle eraser differently - by removing objects on click
-                this.canvas.isDrawingMode = false;
-                this.setupEraserMode();
+                this.canvas.freeDrawingBrush.strokeLineCap = 'round';
+                this.canvas.freeDrawingBrush.strokeLineJoin = 'round';
                 break;
 
             case 'text':
                 this.canvas.isDrawingMode = false;
+                this.canvas.selection = false;
+                // Make objects non-selectable when adding text
+                this.canvas.forEachObject(obj => {
+                    obj.selectable = false;
+                    obj.evented = false;
+                });
                 this.setupTextMode();
                 break;
 
             default:
+                // Shape drawing tools (rect, circle, arrow)
                 this.canvas.isDrawingMode = false;
                 this.canvas.selection = false;
+                // Make objects non-selectable when drawing shapes
+                this.canvas.forEachObject(obj => {
+                    obj.selectable = false;
+                    obj.evented = false;
+                });
                 break;
         }
-    },
-
-    /**
-     * Set up eraser mode - delete objects on click
-     */
-    setupEraserMode() {
-        // Remove previous eraser handler if exists
-        if (this._eraserHandler) {
-            this.canvas.off('mouse:down', this._eraserHandler);
-        }
-        
-        this._eraserHandler = (opt) => {
-            if (this.currentTool !== 'eraser') return;
-            
-            const target = this.canvas.findTarget(opt.e);
-            if (target && target !== this.backgroundImage) {
-                this.canvas.remove(target);
-                // Remove arrowhead if it's an arrow
-                if (target.arrowHead) {
-                    this.canvas.remove(target.arrowHead);
-                }
-            }
-        };
-        
-        this.canvas.on('mouse:down', this._eraserHandler);
     },
 
     /**
      * Set up text mode - add text on click
      */
     setupTextMode() {
-        // Remove previous text handler if exists
         if (this._textHandler) {
             this.canvas.off('mouse:down', this._textHandler);
         }
@@ -367,7 +644,6 @@ const DrawingTool = {
         this._textHandler = (opt) => {
             if (this.currentTool !== 'text') return;
             
-            // Don't add text if clicking on existing object
             const target = this.canvas.findTarget(opt.e);
             if (target) return;
 
@@ -379,13 +655,27 @@ const DrawingTool = {
                 fill: this.currentColor,
                 fontSize: this.brushSize * 6,
                 fontFamily: 'Outfit, sans-serif',
-                fontWeight: '600'
+                fontWeight: '600',
+                selectable: true,
+                evented: true
             });
 
             this.canvas.add(text);
             this.canvas.setActiveObject(text);
             text.enterEditing();
             text.selectAll();
+            
+            // After text is finished editing, make it non-selectable
+            text.on('editing:exited', () => {
+                if (this.currentTool !== 'select') {
+                    text.selectable = false;
+                    text.evented = false;
+                    this.canvas.discardActiveObject();
+                    this.canvas.renderAll();
+                }
+            });
+
+            this.autoSave();
         };
 
         this.canvas.on('mouse:down', this._textHandler);
@@ -418,7 +708,6 @@ const DrawingTool = {
         const objects = this.canvas.getObjects();
         if (objects.length > 0) {
             const lastObj = objects[objects.length - 1];
-            // Remove arrowhead if it's an arrow
             if (lastObj.arrowHead) {
                 this.canvas.remove(lastObj.arrowHead);
             }
@@ -427,31 +716,26 @@ const DrawingTool = {
     },
 
     /**
-     * Clear all drawings (keep background)
+     * Clear all drawings
      */
     clearCanvas() {
         if (!this.canvas) return;
         
         if (!confirm('Clear all markups?')) return;
         
-        const objects = this.canvas.getObjects();
-        objects.forEach(obj => {
+        this.canvas.getObjects().forEach(obj => {
             this.canvas.remove(obj);
         });
     },
 
     /**
      * Get canvas data as JSON (for saving)
-     * @returns {Object}
      */
     getCanvasData() {
         if (!this.canvas) return null;
         
         const json = this.canvas.toJSON();
-        // Remove background image from JSON (we store it separately)
-        delete json.backgroundImage;
         
-        // Only return if there are objects
         if (json.objects && json.objects.length > 0) {
             return json;
         }
@@ -460,16 +744,22 @@ const DrawingTool = {
 
     /**
      * Load canvas data from JSON
-     * @param {Object} data - Fabric.js JSON data
      */
     loadCanvasData(data) {
         if (!this.canvas || !data) return;
         
-        // Load objects only (background is already set)
         if (data.objects) {
             data.objects.forEach(objData => {
                 fabric.util.enlivenObjects([objData], (objects) => {
                     objects.forEach(obj => {
+                        // Set selectability based on current tool
+                        if (this.currentTool === 'select') {
+                            obj.selectable = true;
+                            obj.evented = true;
+                        } else {
+                            obj.selectable = false;
+                            obj.evented = false;
+                        }
                         this.canvas.add(obj);
                     });
                     this.canvas.renderAll();
@@ -479,20 +769,7 @@ const DrawingTool = {
     },
 
     /**
-     * Get marked up image as data URL
-     * @returns {string}
-     */
-    getMarkedUpImage() {
-        if (!this.canvas) return null;
-        return this.canvas.toDataURL({
-            format: 'png',
-            quality: 1
-        });
-    },
-
-    /**
      * Add a reference image to the canvas
-     * @param {File} file - Image file
      */
     addReferenceImage(file) {
         if (!this.canvas) return;
@@ -500,19 +777,17 @@ const DrawingTool = {
         const reader = new FileReader();
         reader.onload = (e) => {
             fabric.Image.fromURL(e.target.result, (img) => {
-                // Scale image to fit canvas (max 50% of canvas size)
                 const maxWidth = this.canvas.width * 0.5;
                 const maxHeight = this.canvas.height * 0.5;
                 
                 const scale = Math.min(
                     maxWidth / img.width,
                     maxHeight / img.height,
-                    1 // Don't upscale
+                    1
                 );
 
                 img.scale(scale);
                 
-                // Center the image
                 img.set({
                     left: (this.canvas.width - img.width * scale) / 2,
                     top: (this.canvas.height - img.height * scale) / 2,
@@ -533,6 +808,4 @@ const DrawingTool = {
     }
 };
 
-// Make DrawingTool globally available
 window.DrawingTool = DrawingTool;
-

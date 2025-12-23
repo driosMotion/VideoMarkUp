@@ -11,6 +11,39 @@ db.version(1).stores({
     snapshots: '++id, projectId, timestamp, createdAt'
 });
 
+// Version 2: Add lastEditedAt index for efficient querying
+db.version(2).stores({
+    projects: '++id, name, createdAt, lastEditedAt',
+    snapshots: '++id, projectId, timestamp, createdAt'
+}).upgrade(async tx => {
+    // Add lastEditedAt to existing projects
+    const projects = await tx.table('projects').toArray();
+    for (const project of projects) {
+        if (!project.lastEditedAt) {
+            await tx.table('projects').update(project.id, {
+                lastEditedAt: project.createdAt || new Date()
+            });
+        }
+    }
+});
+
+// Version 2: Add lastEditedAt index for sorting projects
+db.version(2).stores({
+    projects: '++id, name, createdAt, lastEditedAt',
+    snapshots: '++id, projectId, timestamp, createdAt'
+}).upgrade(async tx => {
+    // Migrate existing projects to have lastEditedAt
+    const projects = await tx.table('projects').toArray();
+    for (const project of projects) {
+        if (!project.lastEditedAt) {
+            await tx.table('projects').update(project.id, {
+                lastEditedAt: project.createdAt || new Date()
+            });
+        }
+    }
+    console.log(`Migrated ${projects.length} projects to version 2`);
+});
+
 /**
  * Storage API
  */
@@ -25,7 +58,8 @@ const Storage = {
             name: project.name || 'Untitled Project',
             videoFileName: project.videoFileName,
             videoData: project.videoData, // Blob
-            createdAt: new Date()
+            createdAt: new Date(),
+            lastEditedAt: new Date()
         });
     },
 
@@ -49,8 +83,32 @@ const Storage = {
             id: p.id,
             name: p.name,
             videoFileName: p.videoFileName,
-            createdAt: p.createdAt
+            createdAt: p.createdAt,
+            lastEditedAt: p.lastEditedAt
         }));
+    },
+
+    /**
+     * Get the most recently edited project
+     * @returns {Promise<Object|null>}
+     */
+    async getLatestProject() {
+        try {
+            const projects = await db.projects.toArray();
+            if (projects.length === 0) return null;
+            
+            // Sort by lastEditedAt (fallback to createdAt)
+            projects.sort((a, b) => {
+                const dateA = a.lastEditedAt || a.createdAt || new Date(0);
+                const dateB = b.lastEditedAt || b.createdAt || new Date(0);
+                return new Date(dateB) - new Date(dateA);
+            });
+            
+            return projects[0];
+        } catch (error) {
+            console.error('Error getting latest project:', error);
+            return null;
+        }
     },
 
     /**
@@ -79,7 +137,7 @@ const Storage = {
      * @returns {Promise<number>} Snapshot ID
      */
     async addSnapshot(snapshot) {
-        return await db.snapshots.add({
+        const id = await db.snapshots.add({
             projectId: snapshot.projectId,
             timestamp: snapshot.timestamp, // Video time in seconds
             originalImage: snapshot.originalImage, // Blob or base64
@@ -90,6 +148,15 @@ const Storage = {
             tagHours: snapshot.tagHours || {}, // Hours per tag for staffing
             createdAt: new Date()
         });
+        
+        // Update project's lastEditedAt timestamp
+        if (snapshot.projectId) {
+            await db.projects.update(snapshot.projectId, {
+                lastEditedAt: new Date()
+            });
+        }
+        
+        return id;
     },
 
     /**
@@ -120,6 +187,14 @@ const Storage = {
      */
     async updateSnapshot(id, updates) {
         await db.snapshots.update(id, updates);
+        
+        // Update project's lastEditedAt timestamp
+        const snapshot = await db.snapshots.get(id);
+        if (snapshot && snapshot.projectId) {
+            await db.projects.update(snapshot.projectId, {
+                lastEditedAt: new Date()
+            });
+        }
     },
 
     /**
@@ -127,7 +202,17 @@ const Storage = {
      * @param {number} id - Snapshot ID
      */
     async deleteSnapshot(id) {
+        // Get snapshot before deleting to update project
+        const snapshot = await db.snapshots.get(id);
+        
         await db.snapshots.delete(id);
+        
+        // Update project's lastEditedAt timestamp
+        if (snapshot && snapshot.projectId) {
+            await db.projects.update(snapshot.projectId, {
+                lastEditedAt: new Date()
+            });
+        }
     },
 
     /**

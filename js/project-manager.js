@@ -90,8 +90,8 @@ const ProjectManager = {
             return;
         }
 
-        // Sort by date (newest first)
-        projects.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        // Sort by last edited date (most recent first)
+        projects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
 
         listEl.innerHTML = projects.map(project => `
             <div class="dropdown-item ${project.id === VideoHandler.currentProjectId ? 'dropdown-item-active' : ''}" data-id="${project.id}">
@@ -101,7 +101,7 @@ const ProjectManager = {
                 </svg>
                 <div class="dropdown-item-info">
                     <span class="dropdown-item-name">${this.escapeHtml(project.name)}</span>
-                    <span class="dropdown-item-meta">${this.formatDate(project.createdAt)}</span>
+                    <span class="dropdown-item-meta">Last edited: ${this.formatDate(project.lastEditedAt || project.createdAt)}</span>
                 </div>
                 <div class="dropdown-item-actions">
                     <button class="dropdown-item-action dropdown-item-rename" data-id="${project.id}" data-name="${this.escapeHtml(project.name)}" title="Rename project">

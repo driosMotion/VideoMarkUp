@@ -68,6 +68,13 @@
                 </svg>
                 Share
             </button>
+            <button class="btn btn-secondary" id="editTagsBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                </svg>
+                Edit Tags
+            </button>
             <button class="btn btn-primary" id="exportPdfBtn" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -103,6 +110,8 @@
             <div class="video-player-container" id="videoPlayerContainer" hidden>
                 <div class="video-wrapper">
                     <video id="videoPlayer" preload="metadata"></video>
+                    <img id="snapshotOverlay" class="snapshot-overlay" hidden>
+                    <canvas id="mainDrawingCanvas"></canvas>
                 </div>
                 
                 <!-- Video Controls -->
@@ -165,9 +174,124 @@
                     
                 </div>
                 
-                <!-- Quick Comment Bar -->
-                <div class="quick-comment-bar">
-                    <input type="text" id="quickCommentInput" placeholder="Leave a comment here..." />
+                <!-- Compact Tool Panels (Always Visible) -->
+                <div class="compact-panels-container">
+                    <!-- Tools Panel -->
+                    <div class="compact-panel">
+                        <div class="panel-label">Tools</div>
+                        <div class="panel-content">
+                            <button class="tool-btn active" data-tool="select" title="Select (V)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" data-tool="draw" title="Draw (B)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                                    <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" data-tool="rect" title="Rectangle (R)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" data-tool="circle" title="Circle (C)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" data-tool="arrow" title="Arrow (A)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <polyline points="12 5 19 12 12 19"></polyline>
+                                </svg>
+                            </button>
+                            <button class="tool-btn" data-tool="text" title="Text (T)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                                    <line x1="12" y1="4" x2="12" y2="20"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Colors & Stroke Panel -->
+                    <div class="compact-panel">
+                        <div class="panel-label">Colors & Stroke</div>
+                        <div class="panel-content">
+                            <div class="color-swatches-inline">
+                                <button class="color-swatch active" data-color="#ff3b3b" style="background:#ff3b3b"></button>
+                                <button class="color-swatch" data-color="#ffcc00" style="background:#ffcc00"></button>
+                                <button class="color-swatch" data-color="#00d68f" style="background:#00d68f"></button>
+                                <button class="color-swatch" data-color="#0095ff" style="background:#0095ff"></button>
+                                <button class="color-swatch" data-color="#9b59b6" style="background:#9b59b6"></button>
+                                <button class="color-swatch" data-color="#ffffff" style="background:#ffffff"></button>
+                            </div>
+                            <div class="brush-size-inline">
+                                <span id="brushSizeValueInline">6</span>px
+                                <input type="range" id="brushSizeInline" min="1" max="20" value="6">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Misc Actions Panel -->
+                    <div class="compact-panel">
+                        <div class="panel-label">Actions</div>
+                        <div class="panel-content">
+                            <button class="action-btn-inline" id="uploadReferenceInlineBtn" title="Add image">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </button>
+                            <input type="file" id="referenceImageInputInline" accept="image/*" hidden>
+                            <button class="action-btn-inline" id="undoBtnInline" title="Undo">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 7v6h6"></path>
+                                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                                </svg>
+                            </button>
+                            <button class="action-btn-inline" id="clearBtnInline" title="Clear">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tags & Hours Panel -->
+                    <div class="compact-panel panel-tags">
+                        <div class="panel-label">Tags & Hours</div>
+                        <div class="panel-content">
+                            <div class="tags-grid-inline">
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="vfx">VFX</button>
+                                    <input type="number" class="tag-hours-input" data-tag="vfx" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="roto">Roto</button>
+                                    <input type="number" class="tag-hours-input" data-tag="roto" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="3d">3D</button>
+                                    <input type="number" class="tag-hours-input" data-tag="3d" placeholder="h" min="0" step="0.5">
+                                </div>
+                                <div class="tag-item">
+                                    <button class="tag-btn" data-tag="comp">Comp</button>
+                                    <input type="number" class="tag-hours-input" data-tag="comp" placeholder="h" min="0" step="0.5">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                
+                <!-- Quick Comment Bar with Color Controls -->
+                <div class="quick-comment-bar-enhanced">
+                    <div id="commentInputInline" class="comment-input-rich-full" contenteditable="true" data-placeholder="Leave a comment here..."></div>
                 </div>
             </div>
         </section>
@@ -383,6 +507,27 @@
     <!-- Toast notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
+    <!-- Tag Editor Modal -->
+    <div class="modal-overlay" id="tagEditorModal" hidden>
+        <div class="tag-editor-modal">
+            <div class="modal-header">
+                <h3>Edit Tags</h3>
+                <button class="modal-close" id="tagEditorClose">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="tag-editor-content">
+                <p class="tag-editor-description">Select which tags appear in the quick panel (4 max):</p>
+                <div class="tag-editor-list" id="tagEditorList">
+                    <!-- Tags will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts (CDN) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
@@ -395,6 +540,7 @@
     <script src="js/snapshot-manager.js"></script>
     <script src="js/drawing-tool.js"></script>
     <script src="js/tag-manager.js"></script>
+    <script src="js/tag-editor.js"></script>
     <script src="js/pdf-exporter.js"></script>
     <script src="js/project-sharing.js"></script>
     <script src="js/project-manager.js"></script>
