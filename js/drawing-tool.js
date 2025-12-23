@@ -158,17 +158,27 @@ const DrawingTool = {
         const videoWrapper = document.querySelector('.video-wrapper');
         if (videoWrapper) {
             videoWrapper.addEventListener('mousedown', async (e) => {
+                console.log('🖱️ MOUSEDOWN detected', {
+                    tool: this.currentTool,
+                    hasCanvas: !!this.canvas,
+                    activeSnapshotId: this.activeSnapshotId,
+                    videoPaused: VideoHandler.video?.paused
+                });
+
                 // Only handle if a drawing tool is selected and video is paused
                 if (!['draw', 'rect', 'circle', 'arrow', 'text'].includes(this.currentTool)) {
+                    console.log('❌ Not a drawing tool, returning');
                     return;
                 }
                 
                 if (!VideoHandler.video || !VideoHandler.video.paused) {
+                    console.log('❌ Video not paused, returning');
                     return;
                 }
                 
                 // If canvas doesn't exist yet, create snapshot and trigger drawing
                 if (!this.canvas || !this.activeSnapshotId) {
+                    console.log('📸 Need to create snapshot first');
                     e.preventDefault();
                     e.stopPropagation();
                     
@@ -177,18 +187,30 @@ const DrawingTool = {
                     const clickX = e.clientX - rect.left;
                     const clickY = e.clientY - rect.top;
                     
-                    ErrorHandler.debug('Creating snapshot from first click', { x: clickX, y: clickY });
+                    console.log('📍 Click position:', { clickX, clickY, clientX: e.clientX, clientY: e.clientY });
                     
                     // Create snapshot
+                    console.log('⏳ Creating snapshot...');
                     await this.ensureSnapshotExists();
+                    console.log('✅ Snapshot created, activeSnapshotId:', this.activeSnapshotId);
                     
                     // Wait for canvas to be fully ready using the promise
+                    console.log('⏳ Waiting for canvas ready promise...');
                     if (this.canvasReadyPromise) {
                         await this.canvasReadyPromise;
+                        console.log('✅ Canvas ready promise resolved');
+                    } else {
+                        console.log('⚠️ No canvas ready promise!');
                     }
                     
+                    console.log('🎨 Canvas state:', {
+                        hasCanvas: !!this.canvas,
+                        canvasReady: this.canvasReady,
+                        activeSnapshotId: this.activeSnapshotId
+                    });
+                    
                     if (this.canvas && this.activeSnapshotId && this.canvasReady) {
-                        ErrorHandler.debug('Canvas ready, simulating drawing events');
+                        console.log('✅ Canvas ready, starting drawing for tool:', this.currentTool);
                         
                         // Get canvas element and calculate coordinates
                         const canvasEl = this.canvas.getElement();
@@ -198,12 +220,32 @@ const DrawingTool = {
                         const canvasX = e.clientX - canvasRect.left;
                         const canvasY = e.clientY - canvasRect.top;
                         
+                        console.log('📐 Canvas coordinates:', {
+                            canvasRect,
+                            canvasX,
+                            canvasY,
+                            originalClientX: e.clientX,
+                            originalClientY: e.clientY
+                        });
+                        
+                        // Create a synthetic mouse event at the original click position
+                        const syntheticEvent = new MouseEvent('mousedown', {
+                            clientX: e.clientX,
+                            clientY: e.clientY,
+                            bubbles: true,
+                            cancelable: true,
+                            view: window
+                        });
+                        
                         // For shapes, start drawing and set up continuation handlers
                         if (['rect', 'circle', 'arrow'].includes(this.currentTool)) {
+                            console.log('🔷 Starting shape drawing:', this.currentTool);
                             this.isDrawing = true;
-                            const pointer = this.canvas.getPointer(e);
+                            const pointer = this.canvas.getPointer(syntheticEvent);
+                            console.log('📍 Pointer position:', pointer);
                             this.startPoint = { x: pointer.x, y: pointer.y };
                             this.createShape(pointer);
+                            console.log('✅ Shape created:', this.currentShape);
                             
                             // Set up temporary handlers for mouse move and up
                             const handleMove = (moveEvent) => {
@@ -237,8 +279,10 @@ const DrawingTool = {
                             document.addEventListener('mouseup', handleUp);
                             
                         } else if (this.currentTool === 'text') {
+                            console.log('✏️ Starting text tool');
                             // For text, trigger text placement
-                            const pointer = this.canvas.getPointer(e);
+                            const pointer = this.canvas.getPointer(syntheticEvent);
+                            console.log('📍 Text pointer position:', pointer);
                             
                             const text = new fabric.IText('Text', {
                                 left: pointer.x,
@@ -255,6 +299,7 @@ const DrawingTool = {
                             this.canvas.setActiveObject(text);
                             text.enterEditing();
                             text.selectAll();
+                            console.log('✅ Text added and editing mode activated');
                             
                             text.on('editing:exited', () => {
                                 if (this.currentTool !== 'select') {
@@ -268,13 +313,18 @@ const DrawingTool = {
                             this.autoSave();
                             
                         } else if (this.currentTool === 'draw') {
+                            console.log('✏️ Starting pen/draw tool');
                             // For draw/pen tool, simulate the drawing start
-                            const pointer = this.canvas.getPointer(e);
+                            const pointer = this.canvas.getPointer(syntheticEvent);
+                            console.log('📍 Draw pointer position:', pointer);
+                            console.log('🎨 Drawing mode active:', this.canvas.isDrawingMode);
+                            console.log('🖌️ Free drawing brush:', this.canvas.freeDrawingBrush);
                             
                             // Manually trigger Fabric's drawing sequence
                             if (this.canvas.isDrawingMode && this.canvas.freeDrawingBrush) {
                                 // Start the path
-                                this.canvas.freeDrawingBrush.onMouseDown(pointer, { e: e });
+                                console.log('▶️ Calling onMouseDown on brush');
+                                this.canvas.freeDrawingBrush.onMouseDown(pointer, { e: syntheticEvent });
                                 
                                 // Set up handlers to continue the stroke
                                 const handleDrawMove = (moveEvent) => {
@@ -300,8 +350,16 @@ const DrawingTool = {
                                 
                                 document.addEventListener('mousemove', handleDrawMove);
                                 document.addEventListener('mouseup', handleDrawUp);
+                            } else {
+                                console.log('⚠️ Drawing mode not active or brush not found');
                             }
                         }
+                    } else {
+                        console.log('❌ Canvas not ready after snapshot creation!', {
+                            hasCanvas: !!this.canvas,
+                            activeSnapshotId: this.activeSnapshotId,
+                            canvasReady: this.canvasReady
+                        });
                     }
                 }
             }, true); // Use capture phase to catch before canvas events
@@ -357,6 +415,7 @@ const DrawingTool = {
      * @param {Object} fabricData - Saved Fabric.js JSON
      */
     enterEditMode(snapshotId, imageData, fabricData = null) {
+        console.log('🎬 enterEditMode called', { snapshotId });
         this.activeSnapshotId = snapshotId;
         this.canvasReady = false; // Track canvas readiness
         
@@ -372,45 +431,55 @@ const DrawingTool = {
         // Load snapshot image into overlay
         overlayImg.src = imageData;
         overlayImg.hidden = false;
+        console.log('🖼️ Snapshot image loading...');
 
         // Create a promise to track when canvas is ready
         this.canvasReadyPromise = new Promise((resolve) => {
             // Wait for image to load to get dimensions
             overlayImg.onload = async () => {
+                console.log('✅ Image loaded');
                 // Decode image for faster rendering (if supported)
                 if (overlayImg.decode) {
                     try {
                         await overlayImg.decode();
+                        console.log('✅ Image decoded');
                     } catch (e) {
-                        // Ignore decode errors, continue anyway
+                        console.log('⚠️ Image decode failed:', e);
                     }
                 }
                 
                 // Use requestAnimationFrame for immediate but smooth initialization
                 requestAnimationFrame(() => {
+                    console.log('🎨 Initializing canvas...');
                     // Get the actual displayed size of the overlay after layout
                     const rect = overlayImg.getBoundingClientRect();
                     const displayWidth = rect.width;
                     const displayHeight = rect.height;
+                    console.log('📐 Canvas dimensions:', { displayWidth, displayHeight });
                     
                     // Initialize or resize canvas to match display
                     this.initCanvas(displayWidth, displayHeight);
+                    console.log('✅ initCanvas called, canvas exists:', !!this.canvas);
 
                     // Clear existing canvas
                     if (this.canvas) {
                         this.canvas.clear();
+                        console.log('🧹 Canvas cleared');
                     }
 
                     // Load saved markups if available
                     if (fabricData) {
                         this.loadCanvasData(fabricData);
+                        console.log('📥 Loaded fabric data');
                     }
                     
                     // Enable drawing
                     wrapper.classList.add('editing');
+                    console.log('✅ Editing mode enabled on wrapper');
                     
                     // Mark canvas as ready and resolve promise
                     this.canvasReady = true;
+                    console.log('✅✅✅ Canvas READY - resolving promise');
                     resolve();
                 });
             };
