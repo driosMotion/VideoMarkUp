@@ -165,11 +165,20 @@
     pointer-events: auto !important;
     z-index: 1000 !important;
     cursor: crosshair !important;
+    /* Performance optimizations */
+    will-change: transform;
+    transform: translateZ(0);
 }
 
 /* Ensure canvas is always on top and interactive during editing */
 .video-wrapper.editing {
     cursor: crosshair;
+}
+
+/* Optimize canvas rendering performance */
+canvas {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
 }
 
 /* Support for vertical/portrait videos - handled by object-fit: contain */

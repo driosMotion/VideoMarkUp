@@ -180,10 +180,10 @@ const DrawingTool = {
                     // Create snapshot
                     await this.ensureSnapshotExists();
                     
-                    // Wait for canvas to be fully ready
+                    // Wait for canvas to be fully ready (optimized with requestAnimationFrame)
                     let attempts = 0;
-                    while ((!this.canvas || !this.activeSnapshotId) && attempts < 30) {
-                        await new Promise(resolve => setTimeout(resolve, 50));
+                    while ((!this.canvas || !this.activeSnapshotId) && attempts < 15) {
+                        await new Promise(resolve => requestAnimationFrame(resolve));
                         attempts++;
                     }
                     
@@ -373,9 +373,18 @@ const DrawingTool = {
         overlayImg.hidden = false;
 
         // Wait for image to load to get dimensions
-        overlayImg.onload = () => {
-            // Small delay to ensure layout is complete
-            setTimeout(() => {
+        overlayImg.onload = async () => {
+            // Decode image for faster rendering (if supported)
+            if (overlayImg.decode) {
+                try {
+                    await overlayImg.decode();
+                } catch (e) {
+                    // Ignore decode errors, continue anyway
+                }
+            }
+            
+            // Use requestAnimationFrame for immediate but smooth initialization
+            requestAnimationFrame(() => {
                 // Get the actual displayed size of the overlay after layout
                 const rect = overlayImg.getBoundingClientRect();
                 const displayWidth = rect.width;
@@ -396,7 +405,7 @@ const DrawingTool = {
                 
                 // Enable drawing
                 wrapper.classList.add('editing');
-            }, 50);
+            });
         };
     },
 
@@ -526,7 +535,7 @@ const DrawingTool = {
             const fabricData = this.getCanvasData();
             // Pass silent=true to prevent clearing panels during auto-save
             await SnapshotManager.saveInlineEdit(this.activeSnapshotId, fabricData, true);
-        }, 500); // Save 500ms after last change
+        }, 300); // Save 300ms after last change (optimized)
     },
 
     /**
@@ -557,11 +566,10 @@ const DrawingTool = {
         } else {
             // Create new snapshot
             ErrorHandler.info('Creating new snapshot at timestamp', { time: currentTime });
-            App.showToast('Creating snapshot...', 'info');
             await SnapshotManager.captureSnapshotWithComment('');
             
-            // Wait a bit for canvas to be fully initialized
-            await new Promise(resolve => setTimeout(resolve, 150));
+            // Canvas will be initialized via requestAnimationFrame, minimal wait
+            await new Promise(resolve => requestAnimationFrame(resolve));
             return true;
         }
     },

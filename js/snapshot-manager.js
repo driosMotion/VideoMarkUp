@@ -116,10 +116,10 @@ const SnapshotManager = {
         // Pause video
         VideoHandler.video.pause();
 
-        // Flash effect
+        // Flash effect (optimized timing)
         const wrapper = document.querySelector('.video-wrapper');
         wrapper.classList.add('flash');
-        setTimeout(() => wrapper.classList.remove('flash'), 150);
+        setTimeout(() => wrapper.classList.remove('flash'), 100);
 
         // Capture frame
         const canvas = VideoHandler.captureFrame();
