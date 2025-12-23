@@ -407,10 +407,18 @@ const DrawingTool = {
      * Set up canvas mouse events for shape drawing
      */
     setupCanvasEvents() {
+        // Track if we need to ensure snapshot on next action
+        let snapshotEnsured = false;
+        
         this.canvas.on('mouse:down', async (opt) => {
-            // Create snapshot before any drawing action
-            if (['draw', 'rect', 'circle', 'arrow'].includes(this.currentTool)) {
-                await this.ensureSnapshotExists();
+            // Create snapshot before any drawing action (for all drawing tools)
+            if (['draw', 'rect', 'circle', 'arrow'].includes(this.currentTool) && !snapshotEnsured) {
+                const created = await this.ensureSnapshotExists();
+                if (created) {
+                    snapshotEnsured = true;
+                    // Wait a bit for canvas to be ready after snapshot creation
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
             }
             
             if (['rect', 'circle', 'arrow'].includes(this.currentTool)) {

@@ -332,11 +332,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    overflow: hidden;
 }
 
 .dropdown-item-action svg {
     width: 16px;
     height: 16px;
+    position: relative;
+    z-index: 2;
 }
 
 .dropdown-item-rename:hover {
@@ -345,8 +349,24 @@ body {
 }
 
 .dropdown-item-delete:hover {
-    background: var(--danger);
-    color: white;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.dropdown-item-delete.deleting {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+/* Delete progress animation for project delete */
+.dropdown-item-delete .delete-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 0%;
+    background: linear-gradient(90deg, #ff3b3b, #ff0000);
+    z-index: 1;
+    border-radius: var(--radius-sm);
 }
 
 .header-right {

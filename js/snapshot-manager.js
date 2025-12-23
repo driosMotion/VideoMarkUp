@@ -299,10 +299,51 @@ const SnapshotManager = {
             }
         });
 
-        // Generate marked up image
+        // Generate marked up image (composite snapshot + drawings)
         let markedUpImage = null;
         if (fabricData && DrawingTool.canvas) {
-            markedUpImage = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
+            try {
+                // Get the current snapshot
+                const snapshot = await Storage.getSnapshot(snapshotId);
+                if (snapshot && snapshot.originalImage) {
+                    // Create a temporary canvas to composite
+                    const tempCanvas = document.createElement('canvas');
+                    const ctx = tempCanvas.getContext('2d');
+                    
+                    // Get dimensions from the fabric canvas
+                    const width = DrawingTool.canvas.width;
+                    const height = DrawingTool.canvas.height;
+                    tempCanvas.width = width;
+                    tempCanvas.height = height;
+                    
+                    // Load the snapshot image
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = snapshot.originalImage;
+                    });
+                    
+                    // Draw snapshot image first
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Draw fabric canvas on top
+                    const fabricImage = new Image();
+                    await new Promise((resolve, reject) => {
+                        fabricImage.onload = resolve;
+                        fabricImage.onerror = reject;
+                        fabricImage.src = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
+                    });
+                    ctx.drawImage(fabricImage, 0, 0);
+                    
+                    // Get the composited image
+                    markedUpImage = tempCanvas.toDataURL('image/png', 1);
+                }
+            } catch (error) {
+                ErrorHandler.error('Failed to generate marked up image', error);
+                // Fallback to just the canvas
+                markedUpImage = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
+            }
         }
 
         // Update storage

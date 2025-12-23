@@ -140,13 +140,76 @@ const ProjectManager = {
             });
         });
 
-        // Delete button handlers
+        // Delete button handlers with hold-to-delete
         listEl.querySelectorAll('.dropdown-item-delete').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
+            let deleteHoldTimer = null;
+            let deleteProgress = null;
+            
+            // Mouse down - start delete timer
+            btn.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
+                e.preventDefault();
+                
                 const projectId = parseInt(btn.dataset.id);
-                await this.deleteProject(projectId);
+                btn.classList.add('deleting');
+                
+                // Create progress overlay
+                deleteProgress = document.createElement('div');
+                deleteProgress.className = 'delete-progress';
+                btn.insertBefore(deleteProgress, btn.firstChild);
+                
+                // Start animation
+                deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
+                
+                // Set timer for actual deletion
+                deleteHoldTimer = setTimeout(async () => {
+                    btn.classList.remove('deleting');
+                    if (deleteProgress && deleteProgress.parentNode) {
+                        deleteProgress.remove();
+                    }
+                    await this.deleteProject(projectId);
+                }, 1000);
             });
+            
+            // Cancel on release or leave
+            const cancelDelete = () => {
+                btn.classList.remove('deleting');
+                if (deleteHoldTimer) {
+                    clearTimeout(deleteHoldTimer);
+                    deleteHoldTimer = null;
+                }
+                if (deleteProgress && deleteProgress.parentNode) {
+                    deleteProgress.remove();
+                }
+            };
+            
+            btn.addEventListener('mouseup', cancelDelete);
+            btn.addEventListener('mouseleave', cancelDelete);
+            
+            // Touch support
+            btn.addEventListener('touchstart', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                const projectId = parseInt(btn.dataset.id);
+                btn.classList.add('deleting');
+                
+                deleteProgress = document.createElement('div');
+                deleteProgress.className = 'delete-progress';
+                btn.insertBefore(deleteProgress, btn.firstChild);
+                deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
+                
+                deleteHoldTimer = setTimeout(async () => {
+                    btn.classList.remove('deleting');
+                    if (deleteProgress && deleteProgress.parentNode) {
+                        deleteProgress.remove();
+                    }
+                    await this.deleteProject(projectId);
+                }, 1000);
+            });
+            
+            btn.addEventListener('touchend', cancelDelete);
+            btn.addEventListener('touchcancel', cancelDelete);
         });
     },
 
@@ -229,10 +292,8 @@ const ProjectManager = {
      */
     async deleteProject(projectId) {
         const project = await Storage.getProject(projectId);
-        if (!confirm(`Delete "${project.name}"? This cannot be undone.`)) {
-            return;
-        }
-
+        
+        // No confirmation needed - hold-to-delete provides confirmation
         await Storage.deleteProject(projectId);
 
         // If we deleted the current project, reset
