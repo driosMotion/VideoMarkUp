@@ -12,6 +12,8 @@ const DrawingTool = {
     startPoint: null,
     currentShape: null,
     activeSnapshotId: null,
+    canvasReady: false,
+    canvasReadyPromise: null,
 
     /**
      * Initialize drawing tool with inline canvas
@@ -180,14 +182,12 @@ const DrawingTool = {
                     // Create snapshot
                     await this.ensureSnapshotExists();
                     
-                    // Wait for canvas to be fully ready (optimized with requestAnimationFrame)
-                    let attempts = 0;
-                    while ((!this.canvas || !this.activeSnapshotId) && attempts < 15) {
-                        await new Promise(resolve => requestAnimationFrame(resolve));
-                        attempts++;
+                    // Wait for canvas to be fully ready using the promise
+                    if (this.canvasReadyPromise) {
+                        await this.canvasReadyPromise;
                     }
                     
-                    if (this.canvas && this.activeSnapshotId) {
+                    if (this.canvas && this.activeSnapshotId && this.canvasReady) {
                         ErrorHandler.debug('Canvas ready, simulating drawing events');
                         
                         // Get canvas element and calculate coordinates
@@ -358,6 +358,7 @@ const DrawingTool = {
      */
     enterEditMode(snapshotId, imageData, fabricData = null) {
         this.activeSnapshotId = snapshotId;
+        this.canvasReady = false; // Track canvas readiness
         
         const overlayImg = document.getElementById('snapshotOverlay');
         const videoEl = document.getElementById('videoPlayer');
@@ -372,41 +373,48 @@ const DrawingTool = {
         overlayImg.src = imageData;
         overlayImg.hidden = false;
 
-        // Wait for image to load to get dimensions
-        overlayImg.onload = async () => {
-            // Decode image for faster rendering (if supported)
-            if (overlayImg.decode) {
-                try {
-                    await overlayImg.decode();
-                } catch (e) {
-                    // Ignore decode errors, continue anyway
-                }
-            }
-            
-            // Use requestAnimationFrame for immediate but smooth initialization
-            requestAnimationFrame(() => {
-                // Get the actual displayed size of the overlay after layout
-                const rect = overlayImg.getBoundingClientRect();
-                const displayWidth = rect.width;
-                const displayHeight = rect.height;
-                
-                // Initialize or resize canvas to match display
-                this.initCanvas(displayWidth, displayHeight);
-
-                // Clear existing canvas
-                if (this.canvas) {
-                    this.canvas.clear();
-                }
-
-                // Load saved markups if available
-                if (fabricData) {
-                    this.loadCanvasData(fabricData);
+        // Create a promise to track when canvas is ready
+        this.canvasReadyPromise = new Promise((resolve) => {
+            // Wait for image to load to get dimensions
+            overlayImg.onload = async () => {
+                // Decode image for faster rendering (if supported)
+                if (overlayImg.decode) {
+                    try {
+                        await overlayImg.decode();
+                    } catch (e) {
+                        // Ignore decode errors, continue anyway
+                    }
                 }
                 
-                // Enable drawing
-                wrapper.classList.add('editing');
-            });
-        };
+                // Use requestAnimationFrame for immediate but smooth initialization
+                requestAnimationFrame(() => {
+                    // Get the actual displayed size of the overlay after layout
+                    const rect = overlayImg.getBoundingClientRect();
+                    const displayWidth = rect.width;
+                    const displayHeight = rect.height;
+                    
+                    // Initialize or resize canvas to match display
+                    this.initCanvas(displayWidth, displayHeight);
+
+                    // Clear existing canvas
+                    if (this.canvas) {
+                        this.canvas.clear();
+                    }
+
+                    // Load saved markups if available
+                    if (fabricData) {
+                        this.loadCanvasData(fabricData);
+                    }
+                    
+                    // Enable drawing
+                    wrapper.classList.add('editing');
+                    
+                    // Mark canvas as ready and resolve promise
+                    this.canvasReady = true;
+                    resolve();
+                });
+            };
+        });
     },
 
     /**
@@ -414,12 +422,15 @@ const DrawingTool = {
      */
     exitEditMode() {
         this.activeSnapshotId = null;
+        this.canvasReady = false;
+        this.canvasReadyPromise = null;
         
         // Hide snapshot overlay
         const overlayImg = document.getElementById('snapshotOverlay');
         if (overlayImg) {
             overlayImg.hidden = true;
             overlayImg.src = '';
+            overlayImg.onload = null; // Clear onload handler
         }
         
         // Disable drawing
