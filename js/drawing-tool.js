@@ -407,7 +407,12 @@ const DrawingTool = {
      * Set up canvas mouse events for shape drawing
      */
     setupCanvasEvents() {
-        this.canvas.on('mouse:down', (opt) => {
+        this.canvas.on('mouse:down', async (opt) => {
+            // Create snapshot before any drawing action
+            if (['draw', 'rect', 'circle', 'arrow'].includes(this.currentTool)) {
+                await this.ensureSnapshotExists();
+            }
+            
             if (['rect', 'circle', 'arrow'].includes(this.currentTool)) {
                 this.isDrawing = true;
                 const pointer = this.canvas.getPointer(opt.e);
@@ -658,22 +663,10 @@ const DrawingTool = {
             btn.classList.toggle('active', btn.dataset.tool === tool);
         });
 
-        // Auto-create snapshot when selecting a drawing tool (if video is paused)
-        if (['draw', 'rect', 'circle', 'arrow', 'text', 'eraser'].includes(tool)) {
-            const created = await this.ensureSnapshotExists();
-            
-            // Wait for canvas to initialize if snapshot was just created
-            if (created) {
-                let attempts = 0;
-                while (!this.canvas && attempts < 20) {
-                    await new Promise(resolve => setTimeout(resolve, 50));
-                    attempts++;
-                }
-            }
-        }
-
+        // Don't create snapshot here - wait until actual drawing action
+        // Canvas might not be ready yet if no snapshot exists
         if (!this.canvas || typeof this.canvas.isDrawingMode === 'undefined') {
-            console.warn('Canvas not ready, skipping tool setup');
+            // This is OK - canvas will be created when snapshot is made
             return;
         }
 
@@ -689,8 +682,11 @@ const DrawingTool = {
             this.canvas.off('mouse:down', this._textHandler);
         }
         
-        this._textHandler = (opt) => {
+        this._textHandler = async (opt) => {
             if (this.currentTool !== 'text') return;
+            
+            // Create snapshot before adding text
+            await this.ensureSnapshotExists();
             
             const target = this.canvas.findTarget(opt.e);
             if (target) return;

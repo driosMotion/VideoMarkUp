@@ -314,8 +314,8 @@ const SnapshotManager = {
             markedUpImage
         });
 
-        // Update card in list
-        this.updateSnapshotCard(snapshotId, { comment, tags, tagHours, fabricData });
+        // Update card in list (with thumbnail)
+        await this.updateSnapshotCard(snapshotId, { comment, tags, tagHours, fabricData, markedUpImage });
 
         // Only clear when explicitly exiting (not auto-saving)
         if (!silent) {
@@ -461,7 +461,7 @@ const SnapshotManager = {
             deleteBtn.insertBefore(deleteProgress, deleteBtn.firstChild);
             
             // Start animation
-            deleteProgress.style.animation = 'deleteProgress 2s linear forwards';
+            deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
             
             // Set timer for actual deletion
             deleteHoldTimer = setTimeout(async () => {
@@ -470,7 +470,7 @@ const SnapshotManager = {
                 if (deleteProgress && deleteProgress.parentNode) {
                     deleteProgress.remove();
                 }
-            }, 2000);
+            }, 1000);
         });
         
         const cancelDelete = () => {
@@ -500,7 +500,7 @@ const SnapshotManager = {
             deleteProgress.className = 'delete-progress';
             // Insert before SVG so z-index layering works
             deleteBtn.insertBefore(deleteProgress, deleteBtn.firstChild);
-            deleteProgress.style.animation = 'deleteProgress 2s linear forwards';
+            deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
             
             deleteHoldTimer = setTimeout(async () => {
                 await this.deleteSnapshotById(snapshot.id, true);
@@ -508,7 +508,7 @@ const SnapshotManager = {
                 if (deleteProgress && deleteProgress.parentNode) {
                     deleteProgress.remove();
                 }
-            }, 2000);
+            }, 1000);
         });
         
         deleteBtn.addEventListener('touchend', cancelDelete);
@@ -635,31 +635,6 @@ const SnapshotManager = {
         document.getElementById('snapshotCount').textContent = count;
     },
 
-    /**
-     * Update a snapshot card in the list
-     * @param {number} id - Snapshot ID
-     * @param {Object} data - Updated data
-     */
-    updateSnapshotCard(id, data) {
-        const card = document.querySelector(`.snapshot-card[data-id="${id}"]`);
-        if (!card) return;
-
-        const tagsContainer = card.querySelector('.snapshot-card-tags');
-        tagsContainer.innerHTML = (data.tags || []).map(tag => {
-            const hours = data.tagHours && data.tagHours[tag];
-            const hoursText = hours ? ` (${hours}h)` : '';
-            return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
-        }).join('');
-
-        const commentEl = card.querySelector('.snapshot-card-comment');
-        commentEl.innerHTML = data.comment || '';
-
-        if (data.fabricData) {
-            card.classList.add('has-markup');
-        } else {
-            card.classList.remove('has-markup');
-        }
-    },
 
     /**
      * Delete a snapshot by ID
