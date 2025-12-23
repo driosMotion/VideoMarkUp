@@ -155,7 +155,7 @@ const DrawingTool = {
         // This catches clicks even when canvas doesn't exist yet
         const videoWrapper = document.querySelector('.video-wrapper');
         if (videoWrapper) {
-            videoWrapper.addEventListener('click', async (e) => {
+            videoWrapper.addEventListener('mousedown', async (e) => {
                 // Only handle if a drawing tool is selected and video is paused
                 if (!['draw', 'rect', 'circle', 'arrow', 'text'].includes(this.currentTool)) {
                     return;
@@ -165,9 +165,76 @@ const DrawingTool = {
                     return;
                 }
                 
-                // If canvas doesn't exist yet, create snapshot
+                // If canvas doesn't exist yet, create snapshot and trigger drawing
                 if (!this.canvas || !this.activeSnapshotId) {
+                    // Store click position relative to video wrapper
+                    const rect = videoWrapper.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const clickY = e.clientY - rect.top;
+                    
+                    ErrorHandler.debug('Creating snapshot from first click', { x: clickX, y: clickY });
+                    
+                    // Create snapshot
                     await this.ensureSnapshotExists();
+                    
+                    // Wait for canvas to be fully ready
+                    let attempts = 0;
+                    while ((!this.canvas || !this.activeSnapshotId) && attempts < 30) {
+                        await new Promise(resolve => setTimeout(resolve, 50));
+                        attempts++;
+                    }
+                    
+                    if (this.canvas && this.activeSnapshotId) {
+                        ErrorHandler.debug('Canvas ready, triggering drawing action');
+                        
+                        // Trigger the drawing action with stored coordinates
+                        if (['rect', 'circle', 'arrow'].includes(this.currentTool)) {
+                            // For shapes, start drawing at the click point
+                            this.isDrawing = true;
+                            const canvasRect = this.canvas.getElement().getBoundingClientRect();
+                            const pointer = {
+                                x: (clickX / rect.width) * canvasRect.width,
+                                y: (clickY / rect.height) * canvasRect.height
+                            };
+                            this.startPoint = { x: pointer.x, y: pointer.y };
+                            this.createShape(pointer);
+                        } else if (this.currentTool === 'text') {
+                            // For text, trigger text placement
+                            const canvasRect = this.canvas.getElement().getBoundingClientRect();
+                            const pointer = {
+                                x: (clickX / rect.width) * canvasRect.width,
+                                y: (clickY / rect.height) * canvasRect.height
+                            };
+                            
+                            const text = new fabric.IText('Text', {
+                                left: pointer.x,
+                                top: pointer.y,
+                                fill: this.currentColor,
+                                fontSize: this.brushSize * 6,
+                                fontFamily: 'Outfit, sans-serif',
+                                fontWeight: '600',
+                                selectable: true,
+                                evented: true
+                            });
+
+                            this.canvas.add(text);
+                            this.canvas.setActiveObject(text);
+                            text.enterEditing();
+                            text.selectAll();
+                            
+                            text.on('editing:exited', () => {
+                                if (this.currentTool !== 'select') {
+                                    text.selectable = false;
+                                    text.evented = false;
+                                    this.canvas.discardActiveObject();
+                                    this.canvas.renderAll();
+                                }
+                            });
+
+                            this.autoSave();
+                        }
+                        // For 'draw' tool, the user will need to draw on their next stroke
+                    }
                 }
             }, true); // Use capture phase to catch before canvas events
         }
