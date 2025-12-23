@@ -78,7 +78,20 @@ const App = {
                 return;
             }
 
-            // Navigation shortcuts (when NOT in edit mode)
+            // Snapshot navigation works in both modes (up/down arrows)
+            if (e.code === 'ArrowUp') {
+                e.preventDefault();
+                SnapshotManager.navigateToPreviousSnapshot();
+                return;
+            }
+
+            if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                SnapshotManager.navigateToNextSnapshot();
+                return;
+            }
+
+            // Frame navigation shortcuts (when NOT in edit mode)
             if (!isEditMode) {
                 switch (e.code) {
                     case 'ArrowLeft':

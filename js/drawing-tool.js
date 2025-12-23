@@ -1037,8 +1037,6 @@ const DrawingTool = {
                 this.canvas.add(img);
                 this.canvas.setActiveObject(img);
                 this.canvas.renderAll();
-
-                App.showToast('Reference image added', 'success');
             });
         };
         reader.readAsDataURL(file);

@@ -182,10 +182,6 @@ const SnapshotManager = {
 
         // Initialize drawing tool with this snapshot
         DrawingTool.enterEditMode(snapshotId, imageData, fabricData);
-
-        if (!preserveComment) {
-            App.showToast('Edit mode active', 'info');
-        }
     },
 
     /**
@@ -710,8 +706,6 @@ const SnapshotManager = {
         if (this.currentSnapshotId === id) {
             this.currentSnapshotId = null;
         }
-
-        App.showToast('Snapshot deleted', 'success');
     },
 
     /**
@@ -756,6 +750,60 @@ const SnapshotManager = {
         document.getElementById('emptyState').hidden = false;
         this.updateSnapshotCount();
         this.snapshots = [];
+    },
+
+    /**
+     * Navigate to the next snapshot (keyboard navigation)
+     */
+    async navigateToNextSnapshot() {
+        if (this.snapshots.length === 0) return;
+
+        let nextSnapshot = null;
+
+        if (this.currentSnapshotId) {
+            // Find current snapshot index
+            const currentIndex = this.snapshots.findIndex(s => s.id === this.currentSnapshotId);
+            if (currentIndex !== -1 && currentIndex < this.snapshots.length - 1) {
+                nextSnapshot = this.snapshots[currentIndex + 1];
+            }
+        } else {
+            // No snapshot selected, select the first one
+            nextSnapshot = this.snapshots[0];
+        }
+
+        if (nextSnapshot) {
+            // Seek to the snapshot's timestamp
+            VideoHandler.video.currentTime = nextSnapshot.timestamp;
+            // Enter edit mode for this snapshot
+            await this.enterInlineEditMode(nextSnapshot.id);
+        }
+    },
+
+    /**
+     * Navigate to the previous snapshot (keyboard navigation)
+     */
+    async navigateToPreviousSnapshot() {
+        if (this.snapshots.length === 0) return;
+
+        let prevSnapshot = null;
+
+        if (this.currentSnapshotId) {
+            // Find current snapshot index
+            const currentIndex = this.snapshots.findIndex(s => s.id === this.currentSnapshotId);
+            if (currentIndex > 0) {
+                prevSnapshot = this.snapshots[currentIndex - 1];
+            }
+        } else {
+            // No snapshot selected, select the last one
+            prevSnapshot = this.snapshots[this.snapshots.length - 1];
+        }
+
+        if (prevSnapshot) {
+            // Seek to the snapshot's timestamp
+            VideoHandler.video.currentTime = prevSnapshot.timestamp;
+            // Enter edit mode for this snapshot
+            await this.enterInlineEditMode(prevSnapshot.id);
+        }
     }
 };
 
