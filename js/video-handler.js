@@ -232,8 +232,14 @@ const VideoHandler = {
         const playIcon = document.querySelector('.play-icon');
         const pauseIcon = document.querySelector('.pause-icon');
         // When playing, show pause "II" button (action available)
-        if (playIcon) playIcon.hidden = true;
-        if (pauseIcon) pauseIcon.hidden = false;
+        if (playIcon) {
+            playIcon.style.display = 'none';
+            playIcon.hidden = true;
+        }
+        if (pauseIcon) {
+            pauseIcon.style.display = 'block';
+            pauseIcon.hidden = false;
+        }
         
         // Reset comment bar when playback resumes
         const commentInputInline = document.getElementById('commentInputInline');
@@ -264,8 +270,14 @@ const VideoHandler = {
         const playIcon = document.querySelector('.play-icon');
         const pauseIcon = document.querySelector('.pause-icon');
         // When paused, show play "▶️" button (action available)
-        if (playIcon) playIcon.hidden = false;
-        if (pauseIcon) pauseIcon.hidden = true;
+        if (playIcon) {
+            playIcon.style.display = 'block';
+            playIcon.hidden = false;
+        }
+        if (pauseIcon) {
+            pauseIcon.style.display = 'none';
+            pauseIcon.hidden = true;
+        }
 
         // Display markups if at a snapshot timestamp
         if (window.SnapshotManager) {

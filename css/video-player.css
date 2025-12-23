@@ -506,10 +506,10 @@
 
 /* Colors */
 .color-swatches-inline {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
     gap: 4px;
-    flex-wrap: wrap;
-    max-width: 200px;
+    max-width: 180px;
 }
 
 /* Brush Size Slider */
