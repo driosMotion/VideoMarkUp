@@ -116,11 +116,6 @@ const SnapshotManager = {
         // Pause video
         VideoHandler.video.pause();
 
-        // Flash effect (optimized timing)
-        const wrapper = document.querySelector('.video-wrapper');
-        wrapper.classList.add('flash');
-        setTimeout(() => wrapper.classList.remove('flash'), 100);
-
         // Capture frame
         const canvas = VideoHandler.captureFrame();
         const imageData = canvas.toDataURL('image/png');
@@ -176,6 +171,9 @@ const SnapshotManager = {
         }
 
         this.currentSnapshotId = snapshotId;
+
+        // Highlight active snapshot card
+        this.highlightActiveSnapshot(snapshotId);
 
         // Load snapshot data into inline panels
         await this.loadSnapshotDataInline(snapshotId, preserveComment);
@@ -372,9 +370,33 @@ const SnapshotManager = {
      * Exit inline edit mode
      */
     exitInlineEditMode() {
+        // Remove active class from all snapshot cards
+        document.querySelectorAll('.snapshot-card').forEach(card => {
+            card.classList.remove('active');
+        });
+
         this.currentSnapshotId = null;
         this.quickCommentSnapshotId = null;
         DrawingTool.exitEditMode();
+    },
+
+    /**
+     * Highlight the active snapshot card
+     * @param {number} snapshotId - Snapshot ID to highlight
+     */
+    highlightActiveSnapshot(snapshotId) {
+        // Remove active class from all cards
+        document.querySelectorAll('.snapshot-card').forEach(card => {
+            card.classList.remove('active');
+        });
+
+        // Add active class to current card
+        const activeCard = document.querySelector(`.snapshot-card[data-id="${snapshotId}"]`);
+        if (activeCard) {
+            activeCard.classList.add('active');
+            // Scroll into view if needed
+            activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     },
 
     /**

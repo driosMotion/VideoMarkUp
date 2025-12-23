@@ -4,6 +4,7 @@
 
 /* Snapshot Card */
 .snapshot-card {
+    position: relative;
     background: var(--bg-tertiary);
     border-radius: var(--radius-lg);
     overflow: hidden;
@@ -17,6 +18,25 @@
     border-color: var(--accent-primary);
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+}
+
+/* Active snapshot highlighting */
+.snapshot-card.active {
+    border-color: var(--accent-primary);
+    background: rgba(255, 68, 68, 0.1);
+    box-shadow: 0 0 0 2px var(--accent-primary), var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.snapshot-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--accent-primary);
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 
 .snapshot-card-thumbnail {
