@@ -54,20 +54,41 @@ const DrawingTool = {
             });
 
             this.setupCanvasEvents();
-        } else {
+        } else if (this.canvas && this.canvas.setDimensions) {
             // Just resize existing canvas
             canvasEl.width = width;
             canvasEl.height = height;
             canvasEl.style.width = width + 'px';
             canvasEl.style.height = height + 'px';
             
-            this.canvas.setDimensions({
-                width: width,
-                height: height
-            });
+            try {
+                this.canvas.setDimensions({
+                    width: width,
+                    height: height
+                });
+            } catch (e) {
+                console.warn('Canvas resize failed, recreating:', e);
+                // Canvas is broken, recreate it
+                this.canvas = new fabric.Canvas('mainDrawingCanvas', {
+                    width: width,
+                    height: height,
+                    selection: true,
+                    allowTouchScrolling: false,
+                    skipTargetFind: false,
+                    renderOnAddRemove: true,
+                    enableRetinaScaling: false
+                });
+                this.setupCanvasEvents();
+            }
         }
         
-        this.setTool('select');
+        // Only set select tool if no tool is currently active
+        if (!this.currentTool || this.currentTool === 'select') {
+            this.setTool('select');
+        } else {
+            // Re-apply the current tool settings to the canvas
+            this.applyToolSettings(this.currentTool);
+        }
     },
 
     /**
@@ -242,13 +263,15 @@ const DrawingTool = {
             wrapper.classList.remove('editing');
         }
 
-        // Clear canvas only if it exists and is properly initialized
-        if (this.canvas && this.canvas.getContext) {
+        // Clear canvas only if it exists and has proper methods
+        if (this.canvas && typeof this.canvas.clear === 'function') {
             try {
                 this.canvas.clear();
-                this.canvas.renderAll();
+                if (typeof this.canvas.renderAll === 'function') {
+                    this.canvas.renderAll();
+                }
             } catch (e) {
-                console.warn('Could not clear canvas:', e);
+                // Canvas might be disposed, ignore
             }
         }
     },
@@ -272,21 +295,22 @@ const DrawingTool = {
                 const displayWidth = rect.width;
                 const displayHeight = rect.height;
                 
-                // Initialize canvas with display dimensions
-                const canvasEl = document.getElementById('mainDrawingCanvas');
-                
+                // Initialize or resize canvas
                 if (!this.canvas) {
                     this.initCanvas(displayWidth, displayHeight);
                 } else {
-                    this.canvas.dispose();
-                    this.initCanvas(displayWidth, displayHeight);
+                    // Resize existing canvas instead of disposing
+                    this.canvas.setDimensions({
+                        width: displayWidth,
+                        height: displayHeight
+                    });
+                    this.canvas.clear();
                 }
 
                 // Style canvas to match
+                const canvasEl = document.getElementById('mainDrawingCanvas');
                 canvasEl.style.width = displayWidth + 'px';
                 canvasEl.style.height = displayHeight + 'px';
-
-                this.canvas.clear();
                 
                 if (fabricData) {
                     this.loadCanvasData(fabricData);
@@ -315,12 +339,15 @@ const DrawingTool = {
             overlayImg.src = '';
         }
         
-        if (this.canvas && this.canvas.getContext) {
+        // Only clear canvas if it exists and has proper methods
+        if (this.canvas && typeof this.canvas.clear === 'function') {
             try {
                 this.canvas.clear();
-                this.canvas.renderAll();
+                if (typeof this.canvas.renderAll === 'function') {
+                    this.canvas.renderAll();
+                }
             } catch (e) {
-                console.warn('Could not clear canvas:', e);
+                // Canvas might be disposed, ignore
             }
         }
     },
@@ -337,6 +364,9 @@ const DrawingTool = {
         }
 
         this.autoSaveTimeout = setTimeout(async () => {
+            // Double-check we still have an active snapshot (may have been cleared)
+            if (!this.activeSnapshotId) return;
+            
             const fabricData = this.getCanvasData();
             // Pass silent=true to prevent clearing panels during auto-save
             await SnapshotManager.saveInlineEdit(this.activeSnapshotId, fabricData, true);
@@ -347,34 +377,26 @@ const DrawingTool = {
      * Check if we need to auto-create a snapshot before drawing
      */
     async ensureSnapshotExists() {
-        console.log('ensureSnapshotExists called');
-        
         // Only auto-create if video is paused and we're not already editing a snapshot
         if (!VideoHandler.video || !VideoHandler.video.paused) {
-            console.log('Video not paused, skipping auto-snapshot');
             return false;
         }
 
         // If we're already editing a snapshot, no need to create new one
         if (this.activeSnapshotId) {
-            console.log('Already editing snapshot:', this.activeSnapshotId);
             return true;
         }
 
         // Check if snapshot exists at current timestamp
         const currentTime = VideoHandler.video.currentTime;
-        console.log('Current time:', currentTime);
-        
         const existingSnapshot = await SnapshotManager.findSnapshotAtTime(currentTime);
         
         if (existingSnapshot) {
             // Load existing snapshot for editing
-            console.log('Loading existing snapshot:', existingSnapshot.id);
             await SnapshotManager.enterInlineEditMode(existingSnapshot.id);
             return true;
         } else {
             // Create new snapshot
-            console.log('Creating new snapshot at', currentTime);
             App.showToast('Creating snapshot...', 'info');
             await SnapshotManager.captureSnapshotWithComment('');
             return true;
@@ -556,38 +578,23 @@ const DrawingTool = {
     },
 
     /**
-     * Set active tool
+     * Apply tool settings to canvas (without UI updates or snapshot creation)
      */
-    async setTool(tool) {
-        this.currentTool = tool;
+    applyToolSettings(tool) {
+        if (!this.canvas || typeof this.canvas.isDrawingMode === 'undefined') {
+            return;
+        }
 
-        // Update UI
+        // Update UI to show active tool
         document.querySelectorAll('.tool-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.tool === tool);
         });
-
-        // Auto-create snapshot when selecting a drawing tool (if video is paused)
-        if (['draw', 'rect', 'circle', 'arrow', 'text'].includes(tool)) {
-            const created = await this.ensureSnapshotExists();
-            console.log('Snapshot ensured, result:', created);
-            
-            // Wait a bit for canvas to initialize if snapshot was just created
-            if (created && !this.canvas) {
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-        }
-
-        if (!this.canvas) {
-            console.warn('No canvas available for tool:', tool);
-            return;
-        }
 
         // Configure canvas based on tool
         switch (tool) {
             case 'select':
                 this.canvas.isDrawingMode = false;
                 this.canvas.selection = true;
-                // Make all objects selectable
                 this.canvas.forEachObject(obj => {
                     obj.selectable = true;
                     obj.evented = true;
@@ -597,7 +604,6 @@ const DrawingTool = {
             case 'draw':
                 this.canvas.isDrawingMode = true;
                 this.canvas.selection = false;
-                // Make all objects non-selectable during drawing
                 this.canvas.forEachObject(obj => {
                     obj.selectable = false;
                     obj.evented = false;
@@ -612,7 +618,6 @@ const DrawingTool = {
             case 'text':
                 this.canvas.isDrawingMode = false;
                 this.canvas.selection = false;
-                // Make objects non-selectable when adding text
                 this.canvas.forEachObject(obj => {
                     obj.selectable = false;
                     obj.evented = false;
@@ -620,17 +625,60 @@ const DrawingTool = {
                 this.setupTextMode();
                 break;
 
+            case 'eraser':
+                this.canvas.isDrawingMode = false;
+                this.canvas.selection = false;
+                this.canvas.forEachObject(obj => {
+                    obj.selectable = true;
+                    obj.evented = true;
+                });
+                this.setupEraserMode();
+                break;
+
             default:
                 // Shape drawing tools (rect, circle, arrow)
                 this.canvas.isDrawingMode = false;
                 this.canvas.selection = false;
-                // Make objects non-selectable when drawing shapes
                 this.canvas.forEachObject(obj => {
                     obj.selectable = false;
                     obj.evented = false;
                 });
                 break;
         }
+    },
+
+    /**
+     * Set active tool (full version with snapshot creation)
+     */
+    async setTool(tool) {
+        this.currentTool = tool;
+
+        // Update UI
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tool === tool);
+        });
+
+        // Auto-create snapshot when selecting a drawing tool (if video is paused)
+        if (['draw', 'rect', 'circle', 'arrow', 'text', 'eraser'].includes(tool)) {
+            const created = await this.ensureSnapshotExists();
+            
+            // Wait for canvas to initialize if snapshot was just created
+            if (created) {
+                let attempts = 0;
+                while (!this.canvas && attempts < 20) {
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    attempts++;
+                }
+            }
+        }
+
+        if (!this.canvas || typeof this.canvas.isDrawingMode === 'undefined') {
+            console.warn('Canvas not ready, skipping tool setup');
+            return;
+        }
+
+        // Apply the tool settings
+        this.applyToolSettings(tool);
     },
 
     /**
@@ -679,6 +727,34 @@ const DrawingTool = {
         };
 
         this.canvas.on('mouse:down', this._textHandler);
+    },
+
+    /**
+     * Setup eraser mode - click objects to delete them
+     */
+    setupEraserMode() {
+        if (this._eraserHandler) {
+            this.canvas.off('mouse:down', this._eraserHandler);
+        }
+
+        this._eraserHandler = (opt) => {
+            if (this.currentTool !== 'eraser') return;
+
+            const target = this.canvas.findTarget(opt.e);
+            if (target) {
+                // If it's an arrow with a head, remove both
+                if (target.arrowHead) {
+                    this.canvas.remove(target.arrowHead);
+                } else if (target.arrowLine) {
+                    this.canvas.remove(target.arrowLine);
+                }
+                this.canvas.remove(target);
+                this.canvas.renderAll();
+                this.autoSave();
+            }
+        };
+
+        this.canvas.on('mouse:down', this._eraserHandler);
     },
 
     /**

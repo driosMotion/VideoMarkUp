@@ -126,9 +126,15 @@
     opacity: 1;
 }
 
+/* Grey hover - no red */
 .snapshot-card-delete:hover {
-    background: var(--danger);
-    color: white;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Keep grey background even when deleting */
+.snapshot-card-delete.deleting {
+    background: rgba(0, 0, 0, 0.7);
 }
 
 .snapshot-card-delete svg {
@@ -136,15 +142,18 @@
     height: 16px;
     position: relative;
     z-index: 2;
+    pointer-events: none;
 }
 
 .delete-progress {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    bottom: 0;
     width: 0%;
-    background: linear-gradient(90deg, rgba(255, 59, 59, 0.7), rgba(255, 59, 59, 0.9));
+    background: linear-gradient(90deg, #ff3b3b, #ff0000);
     z-index: 1;
-    transform-origin: left;
+    border-radius: var(--radius-sm);
 }
 
 @keyframes deleteProgress {
@@ -153,15 +162,6 @@
     }
     to {
         width: 100%;
-    }
-}
-
-@keyframes deleteProgress {
-    from {
-        height: 0%;
-    }
-    to {
-        height: 100%;
     }
 }
 
@@ -656,5 +656,43 @@
     font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+.tag-editor-delete {
+    background: transparent;
+    border: none;
+    padding: var(--spacing-xs);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.tag-editor-delete svg {
+    width: 16px;
+    height: 16px;
+}
+
+.tag-editor-delete:hover {
+    background: var(--danger);
+    color: white;
+}
+
+.tag-editor-add-btn {
+    width: 100%;
+    margin-top: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.tag-editor-add-btn svg {
+    width: 16px;
+    height: 16px;
 }
 

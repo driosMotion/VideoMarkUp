@@ -7,6 +7,7 @@ const SnapshotManager = {
     snapshots: [],
     currentSnapshotId: null,
     quickCommentSnapshotId: null,
+    isCreatingSnapshot: false,
 
     /**
      * Initialize snapshot manager
@@ -21,7 +22,7 @@ const SnapshotManager = {
      * @returns {Promise<Object|null>} Snapshot or null
      */
     async findSnapshotAtTime(timestamp) {
-        const snapshots = await Storage.getSnapshotsForProject(VideoHandler.currentProjectId);
+        const snapshots = await Storage.getSnapshots(VideoHandler.currentProjectId);
         // Allow 0.1 second tolerance for floating point comparison
         return snapshots.find(s => Math.abs(s.timestamp - timestamp) < 0.1) || null;
     },
@@ -36,10 +37,6 @@ const SnapshotManager = {
         if (commentInputInline) {
             commentInputInline.addEventListener('input', () => {
                 this.handleCommentInput();
-                // Auto-save comment changes if editing
-                if (this.currentSnapshotId) {
-                    this.triggerAutoSave();
-                }
             });
         }
 
@@ -81,9 +78,28 @@ const SnapshotManager = {
             return;
         }
 
+        // If already creating a snapshot, don't create another
+        if (this.isCreatingSnapshot) {
+            return;
+        }
+
+        // Check if snapshot already exists at current timestamp
+        const currentTime = VideoHandler.video.currentTime;
+        const existingSnapshot = await this.findSnapshotAtTime(currentTime);
+        
+        if (existingSnapshot) {
+            // Load existing snapshot for editing
+            this.currentSnapshotId = existingSnapshot.id;
+            this.quickCommentSnapshotId = existingSnapshot.id;
+            await this.enterInlineEditMode(existingSnapshot.id);
+            return;
+        }
+
         // Only create new snapshot if no snapshot is being edited and text is entered
         if (text.length > 0) {
+            this.isCreatingSnapshot = true;
             await this.captureSnapshotWithComment(html);
+            this.isCreatingSnapshot = false;
         }
     },
 
@@ -254,8 +270,17 @@ const SnapshotManager = {
      * @param {boolean} silent - Don't clear panels or show toast (for auto-save)
      */
     async saveInlineEdit(snapshotId, fabricData, silent = false) {
+        // Validate snapshot ID
+        if (!snapshotId || typeof snapshotId !== 'number') {
+            console.warn('Invalid snapshot ID:', snapshotId);
+            return;
+        }
+        
         const snapshot = await Storage.getSnapshot(snapshotId);
-        if (!snapshot) return;
+        if (!snapshot) {
+            console.warn('Snapshot not found:', snapshotId);
+            return;
+        }
 
         // Collect data from inline panels
         const comment = document.getElementById('commentInputInline').innerHTML;
@@ -398,6 +423,9 @@ const SnapshotManager = {
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
         }).join('');
 
+        // Use marked up image if available, otherwise original
+        const thumbnailImage = snapshot.markedUpImage || snapshot.originalImage;
+        
         card.innerHTML = `
             <div class="snapshot-card-thumbnail">
                 <button class="snapshot-card-delete" title="Delete snapshot">
@@ -406,7 +434,7 @@ const SnapshotManager = {
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                     </svg>
                 </button>
-                <img src="${snapshot.originalImage}" alt="Snapshot at ${VideoHandler.formatTimecode(snapshot.timestamp)}">
+                <img src="${thumbnailImage}" alt="Snapshot at ${VideoHandler.formatTimecode(snapshot.timestamp)}">
                 <span class="snapshot-card-timecode">${VideoHandler.formatTimecode(snapshot.timestamp)}</span>
             </div>
             <div class="snapshot-card-body">
@@ -423,10 +451,14 @@ const SnapshotManager = {
         deleteBtn.addEventListener('mousedown', (e) => {
             e.stopPropagation();
             
+            // Add deleting class to show progress
+            deleteBtn.classList.add('deleting');
+            
             // Create progress overlay
             deleteProgress = document.createElement('div');
             deleteProgress.className = 'delete-progress';
-            deleteBtn.appendChild(deleteProgress);
+            // Insert before SVG so z-index layering works
+            deleteBtn.insertBefore(deleteProgress, deleteBtn.firstChild);
             
             // Start animation
             deleteProgress.style.animation = 'deleteProgress 2s linear forwards';
@@ -434,6 +466,7 @@ const SnapshotManager = {
             // Set timer for actual deletion
             deleteHoldTimer = setTimeout(async () => {
                 await this.deleteSnapshotById(snapshot.id, true); // true = no confirmation
+                deleteBtn.classList.remove('deleting');
                 if (deleteProgress && deleteProgress.parentNode) {
                     deleteProgress.remove();
                 }
@@ -441,6 +474,7 @@ const SnapshotManager = {
         });
         
         const cancelDelete = () => {
+            deleteBtn.classList.remove('deleting');
             if (deleteHoldTimer) {
                 clearTimeout(deleteHoldTimer);
                 deleteHoldTimer = null;
@@ -458,14 +492,19 @@ const SnapshotManager = {
             e.stopPropagation();
             e.preventDefault();
             
+            // Add deleting class to show progress
+            deleteBtn.classList.add('deleting');
+            
             // Trigger same as mousedown
             deleteProgress = document.createElement('div');
             deleteProgress.className = 'delete-progress';
-            deleteBtn.appendChild(deleteProgress);
+            // Insert before SVG so z-index layering works
+            deleteBtn.insertBefore(deleteProgress, deleteBtn.firstChild);
             deleteProgress.style.animation = 'deleteProgress 2s linear forwards';
             
             deleteHoldTimer = setTimeout(async () => {
                 await this.deleteSnapshotById(snapshot.id, true);
+                deleteBtn.classList.remove('deleting');
                 if (deleteProgress && deleteProgress.parentNode) {
                     deleteProgress.remove();
                 }
@@ -479,6 +518,56 @@ const SnapshotManager = {
         card.addEventListener('click', () => this.openSnapshotInline(snapshot.id));
 
         list.appendChild(card);
+    },
+
+    /**
+     * Update snapshot card in the list
+     * @param {number} snapshotId - Snapshot ID
+     * @param {Object} updates - Updated data (comment, tags, tagHours, markedUpImage)
+     */
+    async updateSnapshotCard(snapshotId, updates) {
+        const card = document.querySelector(`.snapshot-card[data-id="${snapshotId}"]`);
+        if (!card) return;
+
+        // Get full snapshot data for thumbnail
+        const snapshot = await Storage.getSnapshot(snapshotId);
+        if (!snapshot) return;
+
+        // Update thumbnail if marked up image exists
+        if (snapshot.markedUpImage) {
+            const img = card.querySelector('.snapshot-card-thumbnail img');
+            if (img) {
+                img.src = snapshot.markedUpImage;
+            }
+        }
+
+        // Update tags
+        if (updates.tags) {
+            const tagsHtml = updates.tags.map(tag => {
+                const hours = updates.tagHours && updates.tagHours[tag];
+                const hoursText = hours ? ` (${hours}h)` : '';
+                return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
+            }).join('');
+            const tagsContainer = card.querySelector('.snapshot-card-tags');
+            if (tagsContainer) {
+                tagsContainer.innerHTML = tagsHtml;
+            }
+        }
+
+        // Update comment
+        if (updates.comment !== undefined) {
+            const commentEl = card.querySelector('.snapshot-card-comment');
+            if (commentEl) {
+                commentEl.innerHTML = updates.comment || '';
+            }
+        }
+
+        // Update has-markup class
+        if (updates.fabricData) {
+            card.classList.add('has-markup');
+        } else {
+            card.classList.remove('has-markup');
+        }
     },
 
     /**

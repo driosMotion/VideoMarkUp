@@ -9,6 +9,7 @@ const VideoHandler = {
     duration: 0,
     frameRate: 24, // Default, can be updated
     currentProjectId: null,
+    previousVolume: 1, // Store volume level before muting
 
     /**
      * Initialize video handler
@@ -77,6 +78,10 @@ const VideoHandler = {
         muteBtn.addEventListener('click', () => this.toggleMute());
         volumeSlider.addEventListener('input', (e) => {
             this.video.volume = e.target.value;
+            // Unmute if volume is increased
+            if (e.target.value > 0) {
+                this.video.muted = false;
+            }
             this.updateVolumeIcon();
         });
 
@@ -224,8 +229,11 @@ const VideoHandler = {
      */
     onPlay() {
         this.isPlaying = true;
-        document.querySelector('.play-icon').hidden = true;
-        document.querySelector('.pause-icon').hidden = false;
+        const playIcon = document.querySelector('.play-icon');
+        const pauseIcon = document.querySelector('.pause-icon');
+        // When playing, show pause "II" button (action available)
+        if (playIcon) playIcon.hidden = true;
+        if (pauseIcon) pauseIcon.hidden = false;
         
         // Reset comment bar when playback resumes
         const commentInputInline = document.getElementById('commentInputInline');
@@ -253,8 +261,11 @@ const VideoHandler = {
      */
     onPause() {
         this.isPlaying = false;
-        document.querySelector('.play-icon').hidden = false;
-        document.querySelector('.pause-icon').hidden = true;
+        const playIcon = document.querySelector('.play-icon');
+        const pauseIcon = document.querySelector('.pause-icon');
+        // When paused, show play "▶️" button (action available)
+        if (playIcon) playIcon.hidden = false;
+        if (pauseIcon) pauseIcon.hidden = true;
 
         // Display markups if at a snapshot timestamp
         if (window.SnapshotManager) {
@@ -321,7 +332,22 @@ const VideoHandler = {
      * Toggle mute
      */
     toggleMute() {
-        this.video.muted = !this.video.muted;
+        const volumeSlider = document.getElementById('volumeSlider');
+        
+        if (this.video.muted || this.video.volume === 0) {
+            // Currently muted - UNMUTE: restore previous volume
+            const volumeToRestore = this.previousVolume || 1;
+            this.video.volume = volumeToRestore;
+            this.video.muted = false;
+            volumeSlider.value = volumeToRestore;
+        } else {
+            // Currently unmuted - MUTE: store current volume and set to 0
+            this.previousVolume = this.video.volume;
+            this.video.volume = 0;
+            this.video.muted = true;
+            volumeSlider.value = 0;
+        }
+        
         this.updateVolumeIcon();
     },
 
