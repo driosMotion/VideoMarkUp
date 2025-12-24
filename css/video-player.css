@@ -823,7 +823,6 @@ canvas {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-    flex: 1 1 auto;
 }
 
 .panel-label {
@@ -1017,9 +1016,10 @@ canvas {
     height: 16px;
 }
 
-/* Tools & Actions Panel - fit content */
+/* Tools & Actions Panel - fixed width */
 .panel-tools-actions {
     flex: 0 0 auto;
+    min-width: 380px;
 }
 
 /* Colors Panel - fit content */
@@ -1027,15 +1027,17 @@ canvas {
     flex: 0 0 auto;
 }
 
-/* Tags Panel - take remaining space */
+/* Tags Panel - grows to fill remaining space */
 .panel-tags {
     flex: 1 1 auto;
     min-width: 400px;
 }
 
 .tags-grid-inline {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-rows: repeat(2, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     gap: var(--spacing-xs);
     width: 100%;
 }
@@ -1044,18 +1046,22 @@ canvas {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    flex: 0 0 auto;
+    min-width: 0;
 }
 
 .tag-item .tag-btn {
-    flex: 0 0 auto;
-    min-width: 60px;
+    flex: 1 1 auto;
+    min-width: 0;
     padding: 5px 8px;
     font-size: 0.6875rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .tag-hours-input {
     width: 38px;
+    flex-shrink: 0;
     padding: 5px 4px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
