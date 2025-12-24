@@ -35,7 +35,7 @@
     color: var(--text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
-    padding: 8px;
+    padding: 6px;
 }
 
 .tool-btn:hover {
@@ -51,8 +51,8 @@
 }
 
 .tool-btn svg {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
 }
 
 /* Tool Options */
@@ -86,8 +86,8 @@
 }
 
 .color-swatch {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%; /* Make circular */
     border: 2px solid transparent;
     cursor: pointer;

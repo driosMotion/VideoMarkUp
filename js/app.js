@@ -27,8 +27,16 @@ const App = {
             ProjectSharing.init();
             ProjectManager.init();
 
+            // FAQ modal
+            if (window.FAQ && typeof window.FAQ.init === 'function') {
+                window.FAQ.init();
+            }
+
             // Set up keyboard shortcuts
             this.setupKeyboardShortcuts();
+
+            // Set up custom tooltips
+            this.setupTooltips();
 
             // Auto-load the most recently edited project
             await this.loadLatestProject();
@@ -86,6 +94,19 @@ const App = {
             }
 
             if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                SnapshotManager.navigateToNextSnapshot();
+                return;
+            }
+
+            // Marker navigation with Shift modifier (both modes)
+            if (e.shiftKey && e.code === 'ArrowLeft') {
+                e.preventDefault();
+                SnapshotManager.navigateToPreviousSnapshot();
+                return;
+            }
+
+            if (e.shiftKey && e.code === 'ArrowRight') {
                 e.preventDefault();
                 SnapshotManager.navigateToNextSnapshot();
                 return;
@@ -173,6 +194,78 @@ const App = {
             toast.classList.add('toast-out');
             setTimeout(() => toast.remove(), 300);
         }, 3000);
+    },
+
+    /**
+     * Setup custom tooltips for tools and actions
+     */
+    setupTooltips() {
+        const tooltip = document.getElementById('customTooltip');
+        const tooltipContent = tooltip.querySelector('.tooltip-content');
+        const tooltipShortcut = tooltip.querySelector('.tooltip-shortcut');
+        let tooltipTimeout = null;
+
+        // Find all elements with data-tooltip attribute
+        const tooltipElements = document.querySelectorAll('[data-tooltip]');
+
+        tooltipElements.forEach(element => {
+            element.addEventListener('mouseenter', (e) => {
+                const tooltipText = element.getAttribute('data-tooltip');
+                const shortcut = element.getAttribute('data-shortcut');
+
+                if (!tooltipText) return;
+
+                // Clear any existing timeout
+                clearTimeout(tooltipTimeout);
+
+                // Show tooltip after a short delay
+                tooltipTimeout = setTimeout(() => {
+                    tooltipContent.textContent = tooltipText;
+                    
+                    if (shortcut) {
+                        tooltipShortcut.textContent = `Shortcut: ${shortcut}`;
+                    } else {
+                        tooltipShortcut.textContent = '';
+                    }
+
+                    // Show tooltip first to get accurate dimensions
+                    tooltip.hidden = false;
+
+                    // Position tooltip after next frame to ensure content is rendered
+                    requestAnimationFrame(() => {
+                        const rect = element.getBoundingClientRect();
+                        const tooltipRect = tooltip.getBoundingClientRect();
+                        
+                        // Position above the element
+                        let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+                        let top = rect.top - tooltipRect.height - 8;
+
+                        // Keep tooltip within viewport bounds
+                        if (left < 8) left = 8;
+                        if (left + tooltipRect.width > window.innerWidth - 8) {
+                            left = window.innerWidth - tooltipRect.width - 8;
+                        }
+                        if (top < 8) {
+                            // If no room above, show below
+                            top = rect.bottom + 8;
+                        }
+
+                        tooltip.style.left = `${left}px`;
+                        tooltip.style.top = `${top}px`;
+                    });
+                }, 500); // 500ms delay before showing
+            });
+
+            element.addEventListener('mouseleave', () => {
+                clearTimeout(tooltipTimeout);
+                tooltip.hidden = true;
+            });
+        });
+
+        // Hide tooltip when clicking anywhere
+        document.addEventListener('click', () => {
+            tooltip.hidden = true;
+        });
     }
 };
 

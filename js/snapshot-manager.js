@@ -3,17 +3,43 @@
  * Handles capturing, storing, and displaying snapshots with inline editing
  */
 
+// #region agent log
+console.log('[BUILD] snapshot-manager.js loaded buildStamp=debug-2025-12-23-1');
+// #endregion
+
 const SnapshotManager = {
     snapshots: [],
     currentSnapshotId: null,
     quickCommentSnapshotId: null,
     isCreatingSnapshot: false,
+    _inlineTagsDelegationBound: false,
+
+    /**
+     * Reset ONLY the tags/hours UI (does not clear comment)
+     */
+    resetInlineTagsUI() {
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (!inlinePanel) return;
+
+        inlinePanel.querySelectorAll('.tag-btn').forEach(btn => btn.classList.remove('active'));
+        inlinePanel.querySelectorAll('.tag-hours-input').forEach(input => (input.value = ''));
+
+        // #region agent log
+        console.log('[DEBUG-PLAY-RESET] resetInlineTagsUI cleared tags/hours');
+        // #endregion
+    },
 
     /**
      * Initialize snapshot manager
      */
     init() {
+        // #region agent log
+        console.log('[DEBUG-INIT] SnapshotManager.init() called at', new Date().toISOString());
+        // #endregion
         this.setupEventListeners();
+        // #region agent log
+        console.log('[DEBUG-INIT] SnapshotManager.init() completed');
+        // #endregion
     },
 
     /**
@@ -31,6 +57,10 @@ const SnapshotManager = {
      * Set up event listeners
      */
     setupEventListeners() {
+        // #region agent log
+        console.log('[DEBUG-INIT] snapshot-manager.js:33 - setupEventListeners called');
+        // #endregion
+        
         const commentInputInline = document.getElementById('commentInputInline');
 
         // Comment input - auto-create snapshot on first character
@@ -40,26 +70,192 @@ const SnapshotManager = {
             });
         }
 
-        // Inline tag buttons
-        document.querySelectorAll('.tag-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                btn.classList.toggle('active');
-                // Auto-save tag changes
-                if (this.currentSnapshotId) {
-                    this.triggerAutoSave();
-                }
-            });
-        });
+        // Inline tags/hours: use EVENT DELEGATION so it still works after TagEditor.updateTagsPanel()
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        // #region agent log
+        console.log('[DEBUG-INIT] snapshot-manager.js:48 - Inline panel found:', !!inlinePanel, 'delegationBound=', this._inlineTagsDelegationBound);
+        // #endregion
 
-        // Tag hours input
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
-            input.addEventListener('change', () => {
-                // Auto-save hour changes
+        if (inlinePanel && !this._inlineTagsDelegationBound) {
+            this._inlineTagsDelegationBound = true;
+
+            // #region agent log
+            console.log('[DEBUG-INIT] Binding inline tag delegation listeners');
+            // #endregion
+
+            inlinePanel.addEventListener('click', async (event) => {
+                const btn = event.target.closest('.tag-btn');
+                if (!btn) return;
+
+                const tag = btn.dataset.tag;
+                // #region agent log
+                console.log('🔥🔥🔥 [DEBUG-TAG-CLICK] delegated click', { tag, currentSnapshotId: this.currentSnapshotId });
+                // #endregion
+
+                // Toggle UI state
+                btn.classList.toggle('active');
+                const isNowActive = btn.classList.contains('active');
+
+                const focusHoursForTag = () => {
+                    const hoursInput = inlinePanel.querySelector(`.tag-hours-input[data-tag="${tag}"]`);
+                    if (hoursInput) {
+                        hoursInput.focus();
+                        if (typeof hoursInput.select === 'function') {
+                            hoursInput.select();
+                        }
+                        // #region agent log
+                        console.log('[DEBUG-FOCUS] Focused hours input after tag click', { tag });
+                        // #endregion
+                    }
+                };
+
+                // If user is starting tagging with no snapshot yet, create snapshot now (pause required for capture)
+                if (!this.currentSnapshotId && VideoHandler.video && !VideoHandler.video.paused) {
+                    VideoHandler.video.pause();
+                }
+                if (!this.currentSnapshotId && VideoHandler.video && VideoHandler.video.paused) {
+                    // Collect current inline tag state BEFORE creating snapshot (so it doesn't get reset)
+                    const initialTags = Array.from(inlinePanel.querySelectorAll('.tag-btn.active')).map(b => b.dataset.tag);
+                    const initialTagHours = {};
+                    inlinePanel.querySelectorAll('.tag-hours-input').forEach(input => {
+                        const v = parseFloat(input.value);
+                        if (!isNaN(v) && v > 0) {
+                            initialTagHours[input.dataset.tag] = v;
+                        }
+                    });
+                    // #region agent log
+                    console.log('[DEBUG-TAG-CLICK] Creating snapshot with initial tags/hours from UI', {
+                        initialTags,
+                        initialTagHours
+                    });
+                    // #endregion
+                    // #region agent log
+                    console.log('[DEBUG-TAG-CLICK] No snapshot exists, creating one from tag click');
+                    // #endregion
+                    await this.captureSnapshotWithComment('', initialTags, initialTagHours);
+                }
+
+                // Save immediately
                 if (this.currentSnapshotId) {
-                    this.triggerAutoSave();
+                    this.triggerAutoSave(true);
+                }
+
+                // UX: when activating a tag, focus its hours input
+                if (isNowActive) {
+                    // Use rAF to ensure focus persists even if enterInlineEditMode updates the DOM
+                    requestAnimationFrame(() => focusHoursForTag());
                 }
             });
-        });
+
+            // UX: if user clicks into an hours box, make the tag active immediately (visual)
+            inlinePanel.addEventListener('focusin', (event) => {
+                const input = event.target.closest('.tag-hours-input');
+                if (!input) return;
+                const tag = input.dataset.tag;
+                const tagBtn = inlinePanel.querySelector(`.tag-btn[data-tag="${tag}"]`);
+                if (tagBtn && !tagBtn.classList.contains('active')) {
+                    tagBtn.classList.add('active');
+                    // #region agent log
+                    console.log('[DEBUG-FOCUS] Activated tag on hours focus', { tag });
+                    // #endregion
+                }
+            });
+
+            // Debounced save while typing hours (bubbles)
+            inlinePanel.addEventListener('input', async (event) => {
+                const input = event.target.closest('.tag-hours-input');
+                if (!input) return;
+                const tag = input.dataset.tag;
+                // #region agent log
+                console.log('💰💰💰 [DEBUG-H2] delegated input', { tag, value: input.value, currentSnapshotId: this.currentSnapshotId });
+                // #endregion
+
+                // If user starts typing hours with no snapshot yet, create snapshot now
+                if (!this.currentSnapshotId && VideoHandler.video && !VideoHandler.video.paused) {
+                    VideoHandler.video.pause();
+                }
+
+                // Ensure tag is active as soon as hours are typed
+                const tagBtn = inlinePanel.querySelector(`.tag-btn[data-tag="${tag}"]`);
+                if (tagBtn && !tagBtn.classList.contains('active') && input.value) {
+                    tagBtn.classList.add('active');
+                    // #region agent log
+                    console.log('[DEBUG-H2] Activated tag due to hours typing', { tag });
+                    // #endregion
+                }
+
+                if (!this.currentSnapshotId && VideoHandler.video && VideoHandler.video.paused && input.value) {
+                    // If hours are being entered, ensure the tag is visually active (handled above)
+
+                    const initialTags = Array.from(inlinePanel.querySelectorAll('.tag-btn.active')).map(b => b.dataset.tag);
+                    const initialTagHours = {};
+                    inlinePanel.querySelectorAll('.tag-hours-input').forEach(inp => {
+                        const v = parseFloat(inp.value);
+                        if (!isNaN(v) && v > 0) {
+                            initialTagHours[inp.dataset.tag] = v;
+                        }
+                    });
+                    // #region agent log
+                    console.log('[DEBUG-H2] Creating snapshot with initial tags/hours from hours typing', {
+                        initialTags,
+                        initialTagHours
+                    });
+                    // #endregion
+                    // #region agent log
+                    console.log('[DEBUG-H2] No snapshot exists, creating one from hours typing');
+                    // #endregion
+                    await this.captureSnapshotWithComment('', initialTags, initialTagHours);
+                }
+
+                if (this.currentSnapshotId) {
+                    this.triggerAutoSave(false);
+                }
+            });
+
+            // Immediate save when leaving hours field (focusout bubbles)
+            inlinePanel.addEventListener('focusout', async (event) => {
+                const input = event.target.closest('.tag-hours-input');
+                if (!input) return;
+                const tag = input.dataset.tag;
+                // #region agent log
+                console.log('[DEBUG-H1] delegated focusout (blur)', { tag, value: input.value, currentSnapshotId: this.currentSnapshotId });
+                // #endregion
+
+                if (!this.currentSnapshotId && VideoHandler.video && !VideoHandler.video.paused) {
+                    VideoHandler.video.pause();
+                }
+                if (!this.currentSnapshotId && VideoHandler.video && VideoHandler.video.paused && input.value) {
+                    // If hours exist, ensure the tag is visually active
+                    const tagBtn = inlinePanel.querySelector(`.tag-btn[data-tag="${tag}"]`);
+                    if (tagBtn && !tagBtn.classList.contains('active')) {
+                        tagBtn.classList.add('active');
+                    }
+
+                    const initialTags = Array.from(inlinePanel.querySelectorAll('.tag-btn.active')).map(b => b.dataset.tag);
+                    const initialTagHours = {};
+                    inlinePanel.querySelectorAll('.tag-hours-input').forEach(inp => {
+                        const v = parseFloat(inp.value);
+                        if (!isNaN(v) && v > 0) {
+                            initialTagHours[inp.dataset.tag] = v;
+                        }
+                    });
+                    // #region agent log
+                    console.log('[DEBUG-H1] Creating snapshot with initial tags/hours from hours blur', {
+                        initialTags,
+                        initialTagHours
+                    });
+                    // #endregion
+                    // #region agent log
+                    console.log('[DEBUG-H1] No snapshot exists, creating one from hours blur');
+                    // #endregion
+                    await this.captureSnapshotWithComment('', initialTags, initialTagHours);
+                }
+
+                if (this.currentSnapshotId) {
+                    this.triggerAutoSave(true);
+                }
+            });
+        }
     },
 
     /**
@@ -106,8 +302,10 @@ const SnapshotManager = {
     /**
      * Capture snapshot with initial comment and enter edit mode
      * @param {string} initialComment - Initial comment HTML
+     * @param {Array<string>} initialTags - Optional initial tags (for tag-first workflows)
+     * @param {Object} initialTagHours - Optional initial tag hours map
      */
-    async captureSnapshotWithComment(initialComment = '') {
+    async captureSnapshotWithComment(initialComment = '', initialTags = null, initialTagHours = null) {
         if (!VideoHandler.currentProjectId) {
             App.showToast('No video loaded', 'error');
             return;
@@ -122,12 +320,23 @@ const SnapshotManager = {
         const timestamp = VideoHandler.getCurrentTime();
 
         // Save to storage
+        const tagsToSave = Array.isArray(initialTags) ? [...new Set(initialTags)] : [];
+        const tagHoursToSave = initialTagHours && typeof initialTagHours === 'object' ? initialTagHours : {};
+
+        // #region agent log
+        console.log('[DEBUG-CAPTURE] captureSnapshotWithComment saving initial tags/hours', {
+            tagsToSave,
+            tagHoursToSave
+        });
+        // #endregion
+
         const snapshotId = await Storage.addSnapshot({
             projectId: VideoHandler.currentProjectId,
             timestamp: timestamp,
             originalImage: imageData,
             comment: initialComment,
-            tags: []
+            tags: tagsToSave,
+            tagHours: tagHoursToSave
         });
 
         // Store reference (both IDs for compatibility)
@@ -261,26 +470,37 @@ const SnapshotManager = {
         const snapshot = await Storage.getSnapshot(snapshotId);
         if (!snapshot) return;
 
-        // Load tags
-        const tagButtons = document.querySelectorAll('.tag-btn');
-        tagButtons.forEach(btn => {
-            const tagName = btn.dataset.tag;
-            if (snapshot.tags && snapshot.tags.includes(tagName)) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
+        // Load tags - ONLY from inline panel to avoid conflicts with modal
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (inlinePanel) {
+            const tagButtons = inlinePanel.querySelectorAll('.tag-btn');
+            tagButtons.forEach(btn => {
+                const tagName = btn.dataset.tag;
+                if (snapshot.tags && snapshot.tags.includes(tagName)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
 
-        // Load tag hours
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
-            const tagName = input.dataset.tag;
-            if (snapshot.tagHours && snapshot.tagHours[tagName]) {
-                input.value = snapshot.tagHours[tagName];
-            } else {
-                input.value = '';
-            }
-        });
+            // #region agent log
+            console.log('[DEBUG-LOAD] loadSnapshotDataInline applied tags/hours', {
+                snapshotId,
+                snapshotTags: snapshot.tags,
+                snapshotTagHours: snapshot.tagHours
+            });
+            // #endregion
+
+            // Load tag hours - ONLY from inline panel
+            inlinePanel.querySelectorAll('.tag-hours-input').forEach(input => {
+                const tagName = input.dataset.tag;
+                if (snapshot.tagHours && snapshot.tagHours[tagName]) {
+                    input.value = snapshot.tagHours[tagName];
+                } else {
+                    input.value = '';
+                }
+            });
+        }
 
         // Load comment only if not skipping (to preserve cursor position)
         if (!skipComment) {
@@ -293,15 +513,18 @@ const SnapshotManager = {
      * Clear inline panels (reset to empty state)
      */
     clearInlinePanels() {
-        // Clear tags
-        document.querySelectorAll('.tag-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
+        // Clear tags - ONLY from inline panel
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (inlinePanel) {
+            inlinePanel.querySelectorAll('.tag-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
 
-        // Clear tag hours
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
-            input.value = '';
-        });
+            // Clear tag hours - ONLY from inline panel
+            inlinePanel.querySelectorAll('.tag-hours-input').forEach(input => {
+                input.value = '';
+            });
+        }
 
         // Clear comment
         const commentInputInline = document.getElementById('commentInputInline');
@@ -313,114 +536,219 @@ const SnapshotManager = {
     /**
      * Trigger auto-save (debounced)
      */
-    triggerAutoSave() {
-        if (!this.currentSnapshotId) return;
+    triggerAutoSave(immediate = false) {
+        if (!this.currentSnapshotId) {
+            console.warn('⚠️ triggerAutoSave called but no currentSnapshotId');
+            return;
+        }
 
-        // Debounce auto-save
+        // #region agent log
+        console.log('[DEBUG-H2] snapshot-manager.js:337 - triggerAutoSave called', {immediate,currentSnapshotId:this.currentSnapshotId,hasTimeout:!!this.autoSaveTimeout});
+        // #endregion
+
+        // Clear existing timeout
         if (this.autoSaveTimeout) {
             clearTimeout(this.autoSaveTimeout);
         }
 
-        this.autoSaveTimeout = setTimeout(async () => {
-            const fabricData = DrawingTool.canvas ? DrawingTool.getCanvasData() : null;
+        const doSave = async () => {
+            // #region agent log
+            console.log('[DEBUG-H2] snapshot-manager.js:350 - Executing save', {currentSnapshotId:this.currentSnapshotId,immediate});
+            // #endregion
+            console.log('⏱️ Auto-save triggered for snapshot:', this.currentSnapshotId);
+            
+            // Get fabricData from DrawingTool if canvas exists
+            // Otherwise, preserve existing fabricData from snapshot
+            let fabricData = undefined; // undefined means "don't update fabricData"
+            
+            if (DrawingTool.canvas && DrawingTool.activeSnapshotId === this.currentSnapshotId) {
+                // Canvas is active for this snapshot, get current data
+                fabricData = DrawingTool.getCanvasData();
+                console.log('✏️ Including canvas data in save');
+            } else {
+                console.log('📋 Tags/hours only save (no canvas)');
+            }
+            
             await this.saveInlineEdit(this.currentSnapshotId, fabricData, true);
-        }, 500);
+        };
+
+        if (immediate) {
+            // #region agent log
+            console.log('[DEBUG-H2] Immediate save requested');
+            // #endregion
+            doSave();
+        } else {
+            // Debounce auto-save for typing
+            this.autoSaveTimeout = setTimeout(doSave, 300); // 300ms debounce for smooth typing
+        }
     },
 
     /**
      * Save inline edits to snapshot
      * @param {number} snapshotId - Snapshot ID
-     * @param {Object} fabricData - Fabric.js canvas data
+     * @param {Object|undefined} fabricData - Fabric.js canvas data (undefined = don't update)
      * @param {boolean} silent - Don't clear panels or show toast (for auto-save)
      */
     async saveInlineEdit(snapshotId, fabricData, silent = false) {
         // Validate snapshot ID
         if (!snapshotId || typeof snapshotId !== 'number') {
-            console.warn('Invalid snapshot ID:', snapshotId);
+            console.warn('❌ Invalid snapshot ID:', snapshotId);
             return;
         }
         
         const snapshot = await Storage.getSnapshot(snapshotId);
         if (!snapshot) {
-            console.warn('Snapshot not found:', snapshotId);
+            console.warn('❌ Snapshot not found:', snapshotId);
             return;
         }
 
-        // Collect data from inline panels
-        const comment = document.getElementById('commentInputInline').innerHTML;
+        // Collect data from inline panels ONLY (not from modal)
+        const comment = document.getElementById('commentInputInline')?.innerHTML || '';
         
-        // Get active tags
+        // Get active tags - ONLY from inline panel
         const tags = [];
-        document.querySelectorAll('.tag-btn.active').forEach(btn => {
-            tags.push(btn.dataset.tag);
-        });
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        
+        // #region agent log
+        console.log('[DEBUG-H6] snapshot-manager.js:382 - Collecting tags - before', {hasinlinePanel:!!inlinePanel});
+        // #endregion
+        
+        if (inlinePanel) {
+            const activeBtns = inlinePanel.querySelectorAll('.tag-btn.active');
+            // #region agent log
+            console.log('[DEBUG-H6] snapshot-manager.js:390 - Active tag buttons found', {count:activeBtns.length,tags:Array.from(activeBtns).map(b=>b.dataset.tag)});
+            // #endregion
+            
+            activeBtns.forEach(btn => {
+                const tagName = btn.dataset.tag;
+                // Only add if not already in array (prevent duplicates)
+                if (!tags.includes(tagName)) {
+                    tags.push(tagName);
+                } else {
+                    // #region agent log
+                    console.error('[DEBUG-H6] snapshot-manager.js:402 - ⚠️ DUPLICATE TAG DETECTED', {tag:tagName,currentTags:tags});
+                    // #endregion
+                }
+            });
+        }
 
-        // Get tag hours
+        // Get tag hours - ONLY from inline panel, and only for active tags
         const tagHours = {};
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
-            if (input.value) {
-                tagHours[input.dataset.tag] = parseFloat(input.value);
+        if (inlinePanel) {
+            const hourInputs = inlinePanel.querySelectorAll('.tag-hours-input');
+            // #region agent log
+            console.log('[DEBUG-H3] snapshot-manager.js:415 - Collecting hours - before', {hourInputsCount:hourInputs.length,activeTags:tags});
+            // #endregion
+            
+            hourInputs.forEach(input => {
+                const tagName = input.dataset.tag;
+                // #region agent log
+                console.log('[DEBUG-H3] snapshot-manager.js:423 - Checking hour input', {tag:tagName,value:input.value,isActive:tags.includes(tagName)});
+                // #endregion
+                
+                // Only save hours for active tags
+                if (input.value && tags.includes(tagName)) {
+                    const hours = parseFloat(input.value);
+                    if (!isNaN(hours) && hours > 0) {
+                        tagHours[tagName] = hours;
+                    }
+                }
+            });
+        }
+        
+        // Debug logging - detailed save info
+        // #region agent log
+        console.log('[DEBUG-SAVE] snapshot-manager.js:453 - saveInlineEdit called', {
+            snapshotId,
+            tags,
+            tagHours,
+            hasFabricData: fabricData !== undefined,
+            hasCanvas: !!DrawingTool.canvas,
+            tagCount: tags.length,
+            hourCount: Object.keys(tagHours).length
+        });
+        // #endregion
+        
+        console.log('💾 Saving snapshot:', { 
+            snapshotId, 
+            tags, 
+            tagHours, 
+            hasFabricData: fabricData !== undefined,
+            hasCanvas: !!DrawingTool.canvas,
+            tagCount: tags.length,
+            hourCount: Object.keys(tagHours).length
+        });
+        
+        // Validate tags/hours match
+        Object.keys(tagHours).forEach(tag => {
+            if (!tags.includes(tag)) {
+                console.warn('⚠️ Hour specified for inactive tag:', tag);
             }
         });
 
+        // Build updates object - only include fabricData if it's being updated
+        const updates = {
+            comment,
+            tags,
+            tagHours
+        };
+
         // Generate marked up image (composite snapshot + drawings)
-        let markedUpImage = null;
-        if (fabricData && DrawingTool.canvas) {
-            try {
-                // Get the current snapshot
-                const snapshot = await Storage.getSnapshot(snapshotId);
-                if (snapshot && snapshot.originalImage) {
-                    // Create a temporary canvas to composite
-                    const tempCanvas = document.createElement('canvas');
-                    const ctx = tempCanvas.getContext('2d');
-                    
-                    // Get dimensions from the fabric canvas
-                    const width = DrawingTool.canvas.width;
-                    const height = DrawingTool.canvas.height;
-                    tempCanvas.width = width;
-                    tempCanvas.height = height;
-                    
-                    // Load the snapshot image
-                    const img = new Image();
-                    await new Promise((resolve, reject) => {
-                        img.onload = resolve;
-                        img.onerror = reject;
-                        img.src = snapshot.originalImage;
-                    });
-                    
-                    // Draw snapshot image first
-                    ctx.drawImage(img, 0, 0, width, height);
-                    
-                    // Draw fabric canvas on top
-                    const fabricImage = new Image();
-                    await new Promise((resolve, reject) => {
-                        fabricImage.onload = resolve;
-                        fabricImage.onerror = reject;
-                        fabricImage.src = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
-                    });
-                    ctx.drawImage(fabricImage, 0, 0);
-                    
-                    // Get the composited image
-                    markedUpImage = tempCanvas.toDataURL('image/png', 1);
+        // Only if fabricData is being updated (not undefined)
+        if (fabricData !== undefined) {
+            updates.fabricData = fabricData;
+            
+            if (fabricData && DrawingTool.canvas) {
+                try {
+                    // Get the current snapshot
+                    const snapshot = await Storage.getSnapshot(snapshotId);
+                    if (snapshot && snapshot.originalImage) {
+                        // Create a temporary canvas to composite
+                        const tempCanvas = document.createElement('canvas');
+                        const ctx = tempCanvas.getContext('2d');
+                        
+                        // Get dimensions from the fabric canvas
+                        const width = DrawingTool.canvas.width;
+                        const height = DrawingTool.canvas.height;
+                        tempCanvas.width = width;
+                        tempCanvas.height = height;
+                        
+                        // Load the snapshot image
+                        const img = new Image();
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = snapshot.originalImage;
+                        });
+                        
+                        // Draw snapshot image first
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Draw fabric canvas on top
+                        const fabricImage = new Image();
+                        await new Promise((resolve, reject) => {
+                            fabricImage.onload = resolve;
+                            fabricImage.onerror = reject;
+                            fabricImage.src = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
+                        });
+                        ctx.drawImage(fabricImage, 0, 0);
+                        
+                        // Get the composited image
+                        updates.markedUpImage = tempCanvas.toDataURL('image/png', 1);
+                    }
+                } catch (error) {
+                    ErrorHandler.error('Failed to generate marked up image', error);
+                    // Fallback to just the canvas
+                    updates.markedUpImage = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
                 }
-            } catch (error) {
-                ErrorHandler.error('Failed to generate marked up image', error);
-                // Fallback to just the canvas
-                markedUpImage = DrawingTool.canvas.toDataURL({ format: 'png', quality: 1 });
             }
         }
 
         // Update storage
-        await Storage.updateSnapshot(snapshotId, {
-            comment,
-            tags,
-            tagHours,
-            fabricData,
-            markedUpImage
-        });
+        await Storage.updateSnapshot(snapshotId, updates);
 
         // Update card in list (with thumbnail)
-        await this.updateSnapshotCard(snapshotId, { comment, tags, tagHours, fabricData, markedUpImage });
+        await this.updateSnapshotCard(snapshotId, updates);
 
         // Only clear when explicitly exiting (not auto-saving)
         if (!silent) {
@@ -522,6 +850,22 @@ const SnapshotManager = {
         cards.forEach(card => {
             listEl.appendChild(card);
         });
+
+        // Update snapshot numbers based on sorted order
+        this.updateSnapshotNumbers();
+    },
+
+    /**
+     * Update snapshot numbers based on current order
+     */
+    updateSnapshotNumbers() {
+        const cards = document.querySelectorAll('.snapshot-card');
+        cards.forEach((card, index) => {
+            const numberEl = card.querySelector('.snapshot-card-number');
+            if (numberEl) {
+                numberEl.textContent = index + 1;
+            }
+        });
     },
 
     /**
@@ -545,8 +889,9 @@ const SnapshotManager = {
             card.classList.add('has-markup');
         }
 
-        // Format tags with hours
-        const tagsHtml = (snapshot.tags || []).map(tag => {
+        // Format tags with hours (dedupe defensively)
+        const uniqueTags = [...new Set(snapshot.tags || [])];
+        const tagsHtml = uniqueTags.map(tag => {
             const hours = snapshot.tagHours && snapshot.tagHours[tag];
             const hoursText = hours ? ` (${hours}h)` : '';
             return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
@@ -557,6 +902,7 @@ const SnapshotManager = {
         
         card.innerHTML = `
             <div class="snapshot-card-thumbnail">
+                <span class="snapshot-card-number"></span>
                 <button class="snapshot-card-delete" title="Delete snapshot">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -647,6 +993,11 @@ const SnapshotManager = {
         card.addEventListener('click', () => this.openSnapshotInline(snapshot.id));
 
         list.appendChild(card);
+
+        // Apply current video filters to snapshot thumbnail
+        if (window.VideoHandler && typeof VideoHandler.applyFilters === 'function') {
+            VideoHandler.applyFilters();
+        }
     },
 
     /**
@@ -656,29 +1007,42 @@ const SnapshotManager = {
      */
     async updateSnapshotCard(snapshotId, updates) {
         const card = document.querySelector(`.snapshot-card[data-id="${snapshotId}"]`);
-        if (!card) return;
+        if (!card) {
+            console.warn('⚠️ Card not found for snapshot:', snapshotId);
+            return;
+        }
 
-        // Get full snapshot data for thumbnail
+        // Get full snapshot data for thumbnail and fabricData check
         const snapshot = await Storage.getSnapshot(snapshotId);
-        if (!snapshot) return;
+        if (!snapshot) {
+            console.warn('⚠️ Snapshot not found for card update:', snapshotId);
+            return;
+        }
 
         // Update thumbnail if marked up image exists
-        if (snapshot.markedUpImage) {
+        if (updates.markedUpImage || snapshot.markedUpImage) {
             const img = card.querySelector('.snapshot-card-thumbnail img');
             if (img) {
-                img.src = snapshot.markedUpImage;
+                img.src = updates.markedUpImage || snapshot.markedUpImage;
             }
         }
 
-        // Update tags
-        if (updates.tags) {
+        // Update tags - ALWAYS update if provided
+        if (updates.tags !== undefined) {
+            // #region agent log
+            console.log('[DEBUG-H7] snapshot-manager.js:755 - Updating card tags', {snapshotId,updatesTags:updates.tags,updatesTagHours:updates.tagHours,snapshotTagHours:snapshot.tagHours});
+            // #endregion
+            
             const tagsHtml = updates.tags.map(tag => {
-                const hours = updates.tagHours && updates.tagHours[tag];
+                const hours = (updates.tagHours || snapshot.tagHours) && (updates.tagHours || snapshot.tagHours)[tag];
                 const hoursText = hours ? ` (${hours}h)` : '';
                 return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
             }).join('');
             const tagsContainer = card.querySelector('.snapshot-card-tags');
             if (tagsContainer) {
+                // #region agent log
+                console.log('[DEBUG-H7] snapshot-manager.js:767 - Setting tagsContainer innerHTML', {oldHTML:tagsContainer.innerHTML,newHTML:tagsHtml});
+                // #endregion
                 tagsContainer.innerHTML = tagsHtml;
             }
         }
@@ -691,12 +1055,14 @@ const SnapshotManager = {
             }
         }
 
-        // Update has-markup class
-        if (updates.fabricData) {
+        // Update has-markup class based on final snapshot state
+        if (snapshot.fabricData && snapshot.fabricData.objects && snapshot.fabricData.objects.length > 0) {
             card.classList.add('has-markup');
         } else {
             card.classList.remove('has-markup');
         }
+        
+        console.log('✅ Card updated:', { snapshotId, tags: updates.tags, tagHours: updates.tagHours });
     },
 
     /**

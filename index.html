@@ -49,8 +49,32 @@
                     </button>
                 </div>
             </div>
+            <div class="video-metadata" id="videoMetadata" hidden>
+                <span class="metadata-item" id="metadataResolution"></span>
+                <span class="metadata-item" id="metadataAspectRatio"></span>
+                <span class="metadata-item" id="metadataFps"></span>
+                <span class="metadata-item" id="metadataChannels"></span>
+                <span class="metadata-item" id="metadataSize"></span>
+                <span class="metadata-item" id="metadataCodec"></span>
+            </div>
         </div>
         <div class="header-right">
+            <button class="btn btn-secondary" id="faqBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.82 1c0 2-3 2-3 4"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                FAQ
+            </button>
+            <button class="btn btn-secondary" id="editTagsBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                </svg>
+                Tags
+            </button>
+            <span class="header-divider"></span>
             <button class="btn btn-secondary" id="importProjectBtn" title="Import a shared project (.zip)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -60,13 +84,6 @@
                 Import
             </button>
             <input type="file" id="importProjectInput" accept=".zip" hidden>
-            <button class="btn btn-secondary" id="editTagsBtn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
-                </svg>
-                Tags
-            </button>
             <button class="btn btn-secondary" id="exportProjectBtn" disabled title="Export project as .zip to share">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -75,6 +92,7 @@
                 </svg>
                 Share
             </button>
+            <span class="header-divider"></span>
             <button class="btn btn-primary" id="exportPdfBtn" disabled>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -108,113 +126,88 @@
 
             <!-- Video Player (shown when video loaded) -->
             <div class="video-player-container" id="videoPlayerContainer" hidden>
-                <div class="video-wrapper">
-                    <video id="videoPlayer" preload="metadata"></video>
-                    <img id="snapshotOverlay" class="snapshot-overlay" hidden>
-                    <canvas id="mainDrawingCanvas"></canvas>
-                </div>
-                
-                <!-- Video Controls -->
-                <div class="video-controls">
-                    <div class="controls-row">
-                        <div class="controls-left">
-                            <button class="control-btn" id="prevFrameBtn" title="Previous frame (←)">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="19 20 9 12 19 4 19 20"></polygon>
-                                    <line x1="5" y1="19" x2="5" y2="5"></line>
-                                </svg>
-                            </button>
-                            <button class="control-btn play-btn" id="playPauseBtn" title="Play/Pause (Space)">
-                                <svg class="play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                                </svg>
-                                <svg class="pause-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden>
-                                    <rect x="6" y="4" width="4" height="16"></rect>
-                                    <rect x="14" y="4" width="4" height="16"></rect>
-                                </svg>
-                            </button>
-                            <button class="control-btn" id="nextFrameBtn" title="Next frame (→)">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                                    <line x1="19" y1="5" x2="19" y2="19"></line>
-                                </svg>
-                            </button>
-                        </div>
-                        
-                        <div class="timecode">
-                            <span id="currentTime">00:00:00:00</span>
-                            <span class="timecode-separator">/</span>
-                            <span id="duration">00:00:00:00</span>
-                        </div>
-                        
-                        <div class="controls-right">
-                            <button class="control-btn" id="muteBtn" title="Mute/Unmute">
-                                <svg class="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                                </svg>
-                                <svg class="mute-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden>
-                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                                </svg>
-                            </button>
-                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.1" value="1">
-                        </div>
+                <div class="video-top-row">
+                    <div class="video-wrapper">
+                        <video id="videoPlayer" preload="metadata"></video>
+                        <img id="snapshotOverlay" class="snapshot-overlay" hidden>
+                        <canvas id="mainDrawingCanvas"></canvas>
                     </div>
-                    
-                    <!-- Progress Bar -->
-                    <div class="progress-container" id="progressContainer">
-                        <div class="progress-bar">
-                            <div class="progress-filled" id="progressFilled"></div>
-                            <div class="progress-handle" id="progressHandle"></div>
+
+                    <!-- Comment panel (between video and snapshots, same height as video area) -->
+                    <aside class="comment-between-panel">
+                        <div class="panel-label">Comment</div>
+                        <div class="quick-comment-bar-enhanced comment-between">
+                            <div id="commentInputInline" class="comment-input-rich-full" contenteditable="true" data-placeholder="Leave a comment here..."></div>
                         </div>
-                        <div class="snapshot-markers" id="snapshotMarkers"></div>
-                    </div>
-                    
+                    </aside>
                 </div>
                 
                 <!-- Compact Tool Panels (Always Visible) -->
                 <div class="compact-panels-container">
-                    <!-- Tools Panel -->
-                    <div class="compact-panel">
-                        <div class="panel-label">Tools</div>
+                    <!-- Tools & Actions Panel (Merged) -->
+                    <div class="compact-panel panel-tools-actions">
+                        <div class="panel-label">Tools & Actions</div>
                         <div class="panel-content">
-                            <button class="tool-btn active" data-tool="select" title="Select (V)">
+                            <button class="tool-btn active" data-tool="select" data-tooltip="Select and move objects on the canvas. Click objects to select them, drag to reposition." data-shortcut="V">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"></path>
                                 </svg>
                             </button>
-                            <button class="tool-btn" data-tool="draw" title="Draw (B)">
+                            <button class="tool-btn" data-tool="draw" data-tooltip="Freehand drawing tool. Click and drag to draw lines and sketches." data-shortcut="B">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
                                     <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
                                 </svg>
                             </button>
-                            <button class="tool-btn" data-tool="rect" title="Rectangle (R)">
+                            <button class="tool-btn" data-tool="rect" data-tooltip="Draw rectangles. Click and drag to create rectangular shapes." data-shortcut="R">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                                 </svg>
                             </button>
-                            <button class="tool-btn" data-tool="circle" title="Circle (C)">
+                            <button class="tool-btn" data-tool="circle" data-tooltip="Draw circles and ellipses. Click and drag to create circular shapes." data-shortcut="C">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <circle cx="12" cy="12" r="10"></circle>
                                 </svg>
                             </button>
-                            <button class="tool-btn" data-tool="arrow" title="Arrow (A)">
+                            <button class="tool-btn" data-tool="arrow" data-tooltip="Draw arrows to point at specific areas. Click and drag to create directional arrows." data-shortcut="A">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <line x1="5" y1="12" x2="19" y2="12"></line>
                                     <polyline points="12 5 19 12 12 19"></polyline>
                                 </svg>
                             </button>
-                            <button class="tool-btn" data-tool="text" title="Text (T)">
+                            <button class="tool-btn" data-tool="text" data-tooltip="Add text annotations. Click anywhere to place text and start typing." data-shortcut="T">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <polyline points="4 7 4 4 20 4 20 7"></polyline>
                                     <line x1="12" y1="4" x2="12" y2="20"></line>
                                 </svg>
                             </button>
-                            <button class="tool-btn" data-tool="eraser" title="Eraser (E)">
+                            <button class="tool-btn" data-tool="eraser" data-tooltip="Delete individual objects. Click on any shape, line, or text to remove it." data-shortcut="E">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M20 20H7L3 16l10-10 7 7-3 3z"></path>
                                     <path d="M7 16l3 3"></path>
+                                </svg>
+                            </button>
+                            
+                            <div class="panel-divider"></div>
+                            
+                            <button class="action-btn-inline" id="uploadReferenceInlineBtn" data-tooltip="Import a reference image to overlay on the video for comparison or tracing.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </button>
+                            <input type="file" id="referenceImageInputInline" accept="image/*" hidden>
+                            <button class="action-btn-inline" id="undoBtnInline" data-tooltip="Undo the last drawing action. Removes the most recently added object.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M3 7v6h6"></path>
+                                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
+                                </svg>
+                            </button>
+                            <button class="action-btn-inline" id="clearBtnInline" data-tooltip="Clear all drawings and annotations from the current snapshot.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
                                 </svg>
                             </button>
                         </div>
@@ -225,50 +218,28 @@
                     </div>
 
                     <!-- Colors Panel -->
-                    <div class="compact-panel">
-                        <div class="panel-label">Colors</div>
+                    <div class="compact-panel panel-colors">
+                        <div class="panel-label">Colors & Opacity</div>
                         <div class="panel-content">
                             <div class="color-swatches-inline">
                                 <button class="color-swatch active" data-color="#ff3b3b" style="background:#ff3b3b" title="Red"></button>
                                 <button class="color-swatch" data-color="#ff6b35" style="background:#ff6b35" title="Orange"></button>
                                 <button class="color-swatch" data-color="#ffcc00" style="background:#ffcc00" title="Yellow"></button>
+                                <button class="color-swatch" data-color="#10dc78" style="background:#10dc78" title="Lime"></button>
                                 <button class="color-swatch" data-color="#00d68f" style="background:#00d68f" title="Green"></button>
                                 <button class="color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="Cyan"></button>
                                 <button class="color-swatch" data-color="#0095ff" style="background:#0095ff" title="Blue"></button>
                                 <button class="color-swatch" data-color="#9b59b6" style="background:#9b59b6" title="Purple"></button>
-                                <button class="color-swatch" data-color="#ff10f0" style="background:#ff10f0" title="Magenta"></button>
+                                <button class="color-swatch" data-color="#ff10f0" style="background:#ff10f0" title="Pink"></button>
                                 <button class="color-swatch" data-color="#ffffff" style="background:#ffffff" title="White"></button>
-                                <button class="color-swatch" data-color="#cccccc" style="background:#cccccc" title="Gray"></button>
-                                <button class="color-swatch" data-color="#666666" style="background:#666666" title="Dark Gray"></button>
+                                <button class="color-swatch" data-color="#999999" style="background:#999999" title="Gray"></button>
                                 <button class="color-swatch" data-color="#000000" style="background:#000000" title="Black"></button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Misc Actions Panel -->
-                    <div class="compact-panel">
-                        <div class="panel-label">Actions</div>
-                        <div class="panel-content">
-                            <button class="action-btn-inline" id="uploadReferenceInlineBtn" title="Add image">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                                    <polyline points="21 15 16 10 5 21"></polyline>
-                                </svg>
-                            </button>
-                            <input type="file" id="referenceImageInputInline" accept="image/*" hidden>
-                            <button class="action-btn-inline" id="undoBtnInline" title="Undo">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M3 7v6h6"></path>
-                                    <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"></path>
-                                </svg>
-                            </button>
-                            <button class="action-btn-inline" id="clearBtnInline" title="Clear">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
-                                </svg>
-                            </button>
+                        <div class="opacity-control">
+                            <span>Opacity</span>
+                            <input type="range" id="opacitySlider" min="0" max="1" step="0.05" value="1">
+                            <span id="opacityValue">100%</span>
                         </div>
                     </div>
 
@@ -315,10 +286,173 @@
 
                 </div>
                 
-                <!-- Quick Comment Bar with Color Controls -->
-                <div class="quick-comment-bar-enhanced">
-                    <div id="commentInputInline" class="comment-input-rich-full" contenteditable="true" data-placeholder="Leave a comment here..."></div>
+                <!-- Video Controls -->
+                <div class="video-controls">
+                    <div class="controls-row">
+                        <div class="controls-left">
+                            <button class="control-btn" id="prevFrameBtn" data-tooltip="Step backward one frame in the video timeline." data-shortcut="←">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="19 20 9 12 19 4 19 20"></polygon>
+                                    <line x1="5" y1="19" x2="5" y2="5"></line>
+                                </svg>
+                            </button>
+                            <button class="control-btn play-btn" id="playPauseBtn" data-tooltip="Play or pause video playback." data-shortcut="Space">
+                                <svg class="play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                </svg>
+                                <svg class="pause-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden>
+                                    <rect x="6" y="4" width="4" height="16"></rect>
+                                    <rect x="14" y="4" width="4" height="16"></rect>
+                                </svg>
+                            </button>
+                            <button class="control-btn" id="nextFrameBtn" data-tooltip="Step forward one frame in the video timeline." data-shortcut="→">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                                    <line x1="19" y1="5" x2="19" y2="19"></line>
+                                </svg>
+                            </button>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <button class="control-btn" id="prevMarkerBtn" data-tooltip="Jump to the previous snapshot marker on the timeline." data-shortcut="Shift+↑">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="18 15 12 9 6 15"></polyline>
+                                </svg>
+                            </button>
+                            <button class="control-btn" id="nextMarkerBtn" data-tooltip="Jump to the next snapshot marker on the timeline." data-shortcut="Shift+↓">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <button class="control-btn" id="loopBtn" data-tooltip="Enable or disable loop playback. When enabled, video restarts automatically.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="17 1 21 5 17 9"></polyline>
+                                    <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                                    <polyline points="7 23 3 19 7 15"></polyline>
+                                    <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+                                </svg>
+                            </button>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <div class="safezone-dropdown">
+                                <button class="control-btn" id="safezoneBtn" data-tooltip="Show safe area guides for different aspect ratios (9:16, 1:1, 4:5).">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="7" y="2" width="10" height="20" rx="2" ry="2"></rect>
+                                        <line x1="7" y1="6" x2="17" y2="6"></line>
+                                        <line x1="7" y1="18" x2="17" y2="18"></line>
+                                    </svg>
+                                </button>
+                                <div class="safezone-menu" id="safezoneMenu" hidden>
+                                    <button class="safezone-item" data-ratio="none">None</button>
+                                    <button class="safezone-item" data-ratio="9:16">9:16 (Story)</button>
+                                    <button class="safezone-item" data-ratio="1:1">1:1 (Square)</button>
+                                    <button class="safezone-item" data-ratio="4:5">4:5 (Feed)</button>
+                                </div>
+                            </div>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <button class="control-btn" id="gridBtn" data-tooltip="Show rule-of-thirds grid overlay with center lines for better composition.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                                    <line x1="3" y1="15" x2="21" y2="15"></line>
+                                    <line x1="9" y1="3" x2="9" y2="21"></line>
+                                    <line x1="15" y1="3" x2="15" y2="21"></line>
+                                </svg>
+                            </button>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <div class="channel-dropdown">
+                                <button class="control-btn channel-btn-text" id="channelBtn" data-tooltip="View individual color channels (RGB, Red, Green, Blue, Alpha) for technical review.">
+                                    <span class="channel-text">CH</span>
+                                </button>
+                                <div class="channel-menu" id="channelMenu" hidden>
+                                    <button class="channel-item active" data-channel="rgb">RGB</button>
+                                    <button class="channel-item" data-channel="red">Red</button>
+                                    <button class="channel-item" data-channel="green">Green</button>
+                                    <button class="channel-item" data-channel="blue">Blue</button>
+                                    <button class="channel-item" data-channel="alpha">Alpha</button>
+                                </div>
+                            </div>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <div class="exposure-control">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                                    <circle cx="12" cy="12" r="5"></circle>
+                                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                                </svg>
+                                <input type="range" class="exposure-slider" id="exposureSlider" min="-1" max="1" step="0.1" value="0" data-tooltip="Adjust video brightness to reveal details in shadows or highlights.">
+                                <button class="exposure-reset-btn" id="exposureResetBtn" data-tooltip="Reset exposure to default (0).">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <polyline points="1 4 1 10 7 10"></polyline>
+                                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            <div class="controls-divider"></div>
+                            
+                            <div class="speed-dropdown">
+                                <button class="control-btn speed-btn" id="speedBtn" data-tooltip="Change video playback speed for detailed review or quick scanning.">
+                                    <span class="speed-value">1×</span>
+                                </button>
+                                <div class="speed-menu" id="speedMenu" hidden>
+                                    <button class="speed-item" data-speed="0.25">0.25×</button>
+                                    <button class="speed-item" data-speed="0.5">0.5×</button>
+                                    <button class="speed-item" data-speed="0.75">0.75×</button>
+                                    <button class="speed-item active" data-speed="1">1×</button>
+                                    <button class="speed-item" data-speed="1.25">1.25×</button>
+                                    <button class="speed-item" data-speed="1.5">1.5×</button>
+                                    <button class="speed-item" data-speed="2">2×</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="timecode">
+                            <span id="currentTime">00:00:00:00</span>
+                            <span class="timecode-separator">/</span>
+                            <span id="duration">00:00:00:00</span>
+                        </div>
+                        
+                        <div class="controls-right">
+                            <button class="control-btn" id="muteBtn" data-tooltip="Mute or unmute audio. Click to toggle sound on/off.">
+                                <svg class="volume-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                </svg>
+                                <svg class="mute-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" hidden>
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                </svg>
+                            </button>
+                            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.1" value="1" data-tooltip="Adjust audio volume level.">
+                        </div>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress-bar">
+                            <div class="progress-filled" id="progressFilled"></div>
+                            <div class="progress-handle" id="progressHandle"></div>
+                        </div>
+                        <div class="snapshot-markers" id="snapshotMarkers"></div>
+                    </div>
+                    
                 </div>
+                
             </div>
         </section>
 
@@ -562,6 +696,77 @@
         </div>
     </div>
 
+    <!-- FAQ Modal -->
+    <div class="modal-overlay" id="faqModal" hidden>
+        <div class="faq-modal">
+            <div class="modal-header">
+                <h3>FAQ</h3>
+                <button class="modal-close" id="faqClose">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="faq-content" id="faqContent">
+                <p class="faq-intro">
+                    Quick guide to the core workflow: capture snapshots, add markups, and track effort with tags &amp; hours.
+                </p>
+
+                <details class="faq-item" open>
+                    <summary class="faq-q">How do I start?</summary>
+                    <div class="faq-a">Click <span class="faq-chip">Import</span> or drop a video into the player. Your work is saved locally in your browser.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do snapshots work?</summary>
+                    <div class="faq-a">Pause the video, then draw on the frame or add tags/hours. The app creates a snapshot at that timecode and shows it in the right sidebar.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do I add markups?</summary>
+                    <div class="faq-a">Pick a tool (Draw / Rect / Circle / Arrow / Text) and draw on the video. Use <span class="faq-chip">Select</span> to move/resize objects.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do tags &amp; hours work?</summary>
+                    <div class="faq-a">Click a tag to activate it (the hours field will focus). Type hours to estimate effort. Tags/hours are saved on the active snapshot and shown on the snapshot card.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">Why do tags reset when I press play?</summary>
+                    <div class="faq-a">When playback resumes, the app exits edit mode and clears the tags/hours UI so you don’t accidentally edit a snapshot while watching.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do I navigate snapshots?</summary>
+                    <div class="faq-a">Use the snapshot list on the right, or use your keyboard: up/down arrows move between snapshots in timeline order.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do I delete a snapshot or project?</summary>
+                    <div class="faq-a">Press and hold the delete icon until the progress fill completes. Release early to cancel.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do I share or export?</summary>
+                    <div class="faq-a"><span class="faq-chip">Share</span> exports a project file. <span class="faq-chip">Export PDF</span> generates a report with snapshots, tags/hours, and comments.</div>
+                </details>
+
+                <details class="faq-item">
+                    <summary class="faq-q">How do I edit the available tags?</summary>
+                    <div class="faq-a">Click <span class="faq-chip">Tags</span> in the top bar to open the tag manager.</div>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Tooltip -->
+    <div id="customTooltip" class="custom-tooltip" hidden>
+        <div class="tooltip-content"></div>
+        <div class="tooltip-shortcut"></div>
+    </div>
+
     <!-- Scripts (CDN) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
@@ -574,18 +779,24 @@
     <script src="js/canvas-manager.js"></script>
     <script src="js/shape-drawing.js"></script>
     <script src="js/brush-manager.js"></script>
-    
-    <!-- App Scripts - Feature Modules -->
-    <script src="js/storage.js"></script>
-    <script src="js/video-handler.js"></script>
-    <script src="js/snapshot-manager.js"></script>
-    <script src="js/drawing-tool.js"></script>
-    <script src="js/tag-manager.js"></script>
-    <script src="js/tag-editor.js"></script>
-    <script src="js/pdf-exporter.js"></script>
-    <script src="js/project-sharing.js"></script>
-    <script src="js/project-manager.js"></script>
-    <script src="js/app.js"></script>
+
+    <!-- App Scripts - Feature Modules (cache-busted for debugging) -->
+    <script src="js/storage.js?v=debug-2025-12-23-1"></script>
+    <script src="js/video-handler.js?v=debug-2025-12-23-1"></script>
+    <script src="js/snapshot-manager.js?v=debug-2025-12-23-1"></script>
+    <script src="js/drawing-tool.js?v=debug-2025-12-23-1"></script>
+    <script src="js/tag-manager.js?v=debug-2025-12-23-1"></script>
+    <script src="js/tag-editor.js?v=debug-2025-12-23-1"></script>
+    <script src="js/pdf-exporter.js?v=debug-2025-12-23-1"></script>
+    <script src="js/project-sharing.js?v=debug-2025-12-23-1"></script>
+    <script src="js/project-manager.js?v=debug-2025-12-23-1"></script>
+    <script src="js/faq.js?v=debug-2025-12-23-1"></script>
+    <script src="js/app.js?v=debug-2025-12-23-1"></script>
+
+    <script>
+      // Debug marker to confirm THIS HTML is what the browser is using
+      console.log('[BUILD] index.html buildStamp=debug-2025-12-23-1 location=', window.location.href);
+    </script>
 </body>
 </html>
 

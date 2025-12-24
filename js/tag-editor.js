@@ -228,6 +228,13 @@ const TagEditor = {
                 return;
             }
 
+            // #region agent log
+            console.log('[DEBUG-TAG-EDITOR] updateTagsPanel() rebuilding tags-grid-inline', {
+                activeTags: this.activeTags,
+                allTagsCount: this.allTags?.length
+            });
+            // #endregion
+
             // Clear existing tags
             container.innerHTML = '';
 

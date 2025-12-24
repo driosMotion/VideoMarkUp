@@ -137,6 +137,11 @@ const Storage = {
      * @returns {Promise<number>} Snapshot ID
      */
     async addSnapshot(snapshot) {
+        // Deduplicate tags before adding
+        const tags = snapshot.tags && Array.isArray(snapshot.tags) 
+            ? [...new Set(snapshot.tags)] 
+            : [];
+        
         const id = await db.snapshots.add({
             projectId: snapshot.projectId,
             timestamp: snapshot.timestamp, // Video time in seconds
@@ -144,7 +149,7 @@ const Storage = {
             markedUpImage: snapshot.markedUpImage || null,
             fabricData: snapshot.fabricData || null, // Fabric.js JSON
             comment: snapshot.comment || '', // HTML content with inline colors
-            tags: snapshot.tags || [],
+            tags: tags, // Deduplicated tags
             tagHours: snapshot.tagHours || {}, // Hours per tag for staffing
             createdAt: new Date()
         });
@@ -165,10 +170,18 @@ const Storage = {
      * @returns {Promise<Array>} Snapshots list
      */
     async getSnapshots(projectId) {
-        return await db.snapshots
+        const snapshots = await db.snapshots
             .where('projectId')
             .equals(projectId)
             .sortBy('timestamp');
+        
+        // Deduplicate tags in all snapshots
+        return snapshots.map(snapshot => {
+            if (snapshot.tags && Array.isArray(snapshot.tags)) {
+                snapshot.tags = [...new Set(snapshot.tags)];
+            }
+            return snapshot;
+        });
     },
 
     /**
@@ -177,7 +190,14 @@ const Storage = {
      * @returns {Promise<Object>} Snapshot data
      */
     async getSnapshot(id) {
-        return await db.snapshots.get(id);
+        const snapshot = await db.snapshots.get(id);
+        
+        // Deduplicate tags if present
+        if (snapshot && snapshot.tags && Array.isArray(snapshot.tags)) {
+            snapshot.tags = [...new Set(snapshot.tags)];
+        }
+        
+        return snapshot;
     },
 
     /**
@@ -186,6 +206,11 @@ const Storage = {
      * @param {Object} updates - Fields to update
      */
     async updateSnapshot(id, updates) {
+        // Deduplicate tags if provided
+        if (updates.tags && Array.isArray(updates.tags)) {
+            updates.tags = [...new Set(updates.tags)]; // Remove duplicates
+        }
+        
         await db.snapshots.update(id, updates);
         
         // Update project's lastEditedAt timestamp

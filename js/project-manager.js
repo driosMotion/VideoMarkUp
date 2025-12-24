@@ -46,6 +46,20 @@ const ProjectManager = {
                 this.closeDropdown();
             }
         });
+        
+        // Close on scroll
+        window.addEventListener('scroll', () => {
+            if (this.isOpen) {
+                this.closeDropdown();
+            }
+        }, true);
+        
+        // Reposition on window resize
+        window.addEventListener('resize', () => {
+            if (this.isOpen) {
+                this.repositionMenu();
+            }
+        });
     },
 
     /**
@@ -64,9 +78,38 @@ const ProjectManager = {
      */
     openDropdown() {
         this.isOpen = true;
-        document.getElementById('projectDropdown').classList.add('open');
-        document.getElementById('projectDropdownMenu').hidden = false;
+        const dropdown = document.getElementById('projectDropdown');
+        const menu = document.getElementById('projectDropdownMenu');
+        
+        dropdown.classList.add('open');
+        menu.hidden = false;
+        
+        // Portal the menu to body to escape stacking contexts
+        document.body.appendChild(menu);
+        
+        // Position the menu
+        this.repositionMenu();
+        
         this.loadProjectList();
+    },
+    
+    /**
+     * Reposition the dropdown menu
+     */
+    repositionMenu() {
+        const menu = document.getElementById('projectDropdownMenu');
+        const btn = document.getElementById('projectDropdownBtn');
+        
+        if (!menu || !btn || menu.parentElement !== document.body) {
+            return;
+        }
+        
+        // Position the menu relative to the button
+        const btnRect = btn.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.top = `${btnRect.bottom + 4}px`;
+        menu.style.left = `${btnRect.left}px`;
+        menu.style.zIndex = '999999';
     },
 
     /**
@@ -74,8 +117,22 @@ const ProjectManager = {
      */
     closeDropdown() {
         this.isOpen = false;
-        document.getElementById('projectDropdown').classList.remove('open');
-        document.getElementById('projectDropdownMenu').hidden = true;
+        const dropdown = document.getElementById('projectDropdown');
+        const menu = document.getElementById('projectDropdownMenu');
+        
+        dropdown.classList.remove('open');
+        menu.hidden = true;
+        
+        // Move menu back to its original parent
+        if (menu.parentElement !== dropdown) {
+            dropdown.appendChild(menu);
+        }
+        
+        // Reset inline styles
+        menu.style.position = '';
+        menu.style.top = '';
+        menu.style.left = '';
+        menu.style.zIndex = '';
     },
 
     /**

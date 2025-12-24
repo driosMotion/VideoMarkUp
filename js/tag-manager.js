@@ -3,6 +3,10 @@
  * Handles tag selection and hour estimates for snapshots
  */
 
+// #region agent log
+console.log('[BUILD] tag-manager.js loaded buildStamp=debug-2025-12-23-1');
+// #endregion
+
 const TagManager = {
     activeTags: [],
     tagHours: {},
@@ -16,22 +20,16 @@ const TagManager = {
 
     /**
      * Set up event listeners
+     * NOTE: TagManager no longer sets up listeners for inline panel
+     * SnapshotManager handles all inline panel events and calls TagManager methods
      */
     setupEventListeners() {
-        document.querySelectorAll('.tag-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.toggleTag(btn.dataset.tag);
-            });
-        });
-
-        // Hour inputs
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
-            input.addEventListener('change', (e) => {
-                const tag = e.target.dataset.tag;
-                const hours = parseFloat(e.target.value) || 0;
-                this.tagHours[tag] = hours;
-            });
-        });
+        // #region agent log
+        console.log('[DEBUG-INIT] TagManager.setupEventListeners() - SKIPPING inline panel (handled by SnapshotManager)');
+        // #endregion
+        
+        // TagManager only manages state, not events for inline panel
+        // SnapshotManager will call toggleTag() and update tagHours directly
     },
 
     /**
@@ -39,8 +37,14 @@ const TagManager = {
      * @param {string} tag - Tag identifier
      */
     toggleTag(tag) {
-        const btn = document.querySelector(`.tag-btn[data-tag="${tag}"]`);
-        const hoursInput = document.querySelector(`.tag-hours-input[data-tag="${tag}"]`);
+        // Only target inline panel
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (!inlinePanel) return;
+        
+        const btn = inlinePanel.querySelector(`.tag-btn[data-tag="${tag}"]`);
+        const hoursInput = inlinePanel.querySelector(`.tag-hours-input[data-tag="${tag}"]`);
+        
+        if (!btn) return;
         
         if (this.activeTags.includes(tag)) {
             // Remove tag
@@ -50,8 +54,10 @@ const TagManager = {
             delete this.tagHours[tag];
             if (hoursInput) hoursInput.value = '';
         } else {
-            // Add tag
-            this.activeTags.push(tag);
+            // Add tag (check for duplicates)
+            if (!this.activeTags.includes(tag)) {
+                this.activeTags.push(tag);
+            }
             btn.classList.add('active');
             // Focus the hours input
             if (hoursInput) {
@@ -66,21 +72,25 @@ const TagManager = {
      * @param {Object} hours - Object with tag hours
      */
     setTags(tags, hours = {}) {
-        // Reset all buttons and inputs
-        document.querySelectorAll('.tag-btn').forEach(btn => {
+        // Only target inline panel
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (!inlinePanel) return;
+        
+        // Reset all buttons and inputs in inline panel
+        inlinePanel.querySelectorAll('.tag-btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
+        inlinePanel.querySelectorAll('.tag-hours-input').forEach(input => {
             input.value = '';
         });
 
-        // Set active tags
-        this.activeTags = tags || [];
+        // Set active tags (remove duplicates)
+        this.activeTags = [...new Set(tags || [])];
         this.tagHours = hours || {};
         
         this.activeTags.forEach(tag => {
-            const btn = document.querySelector(`.tag-btn[data-tag="${tag}"]`);
-            const hoursInput = document.querySelector(`.tag-hours-input[data-tag="${tag}"]`);
+            const btn = inlinePanel.querySelector(`.tag-btn[data-tag="${tag}"]`);
+            const hoursInput = inlinePanel.querySelector(`.tag-hours-input[data-tag="${tag}"]`);
             if (btn) {
                 btn.classList.add('active');
             }
@@ -119,12 +129,17 @@ const TagManager = {
     clearTags() {
         this.activeTags = [];
         this.tagHours = {};
-        document.querySelectorAll('.tag-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelectorAll('.tag-hours-input').forEach(input => {
-            input.value = '';
-        });
+        
+        // Only target inline panel
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (inlinePanel) {
+            inlinePanel.querySelectorAll('.tag-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            inlinePanel.querySelectorAll('.tag-hours-input').forEach(input => {
+                input.value = '';
+            });
+        }
     },
 
     /**

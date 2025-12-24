@@ -8,6 +8,7 @@ const DrawingTool = {
     currentTool: 'select',
     currentColor: '#ff3b3b',
     brushSize: 6,
+    opacity: 1,
     isDrawing: false,
     startPoint: null,
     currentShape: null,
@@ -127,6 +128,17 @@ const DrawingTool = {
             brushSizeValue.textContent = this.brushSize;
             this.updateBrushSize();
         });
+
+        // Opacity
+        const opacitySlider = document.getElementById('opacitySlider');
+        const opacityValue = document.getElementById('opacityValue');
+        if (opacitySlider && opacityValue) {
+            opacitySlider.addEventListener('input', (e) => {
+                this.opacity = parseFloat(e.target.value);
+                opacityValue.textContent = `${Math.round(this.opacity * 100)}%`;
+                this.updateOpacity();
+            });
+        }
 
         // Reference image upload
         const uploadRefBtn = document.getElementById('uploadReferenceInlineBtn');
@@ -300,6 +312,7 @@ const DrawingTool = {
                                 fill: this.currentColor,
                                 fontSize: this.brushSize * 6,
                                 fontFamily: 'Outfit, sans-serif',
+                                opacity: this.opacity,
                                 fontWeight: '600',
                                 selectable: true,
                                 evented: true
@@ -735,7 +748,7 @@ const DrawingTool = {
             selectable: true,
             originX: 'left',
             originY: 'top',
-            opacity: 1,
+            opacity: this.opacity,
             strokeUniform: true
         };
 
@@ -827,6 +840,7 @@ const DrawingTool = {
                     width: headLen,
                     height: headLen,
                     fill: this.currentColor,
+                    opacity: this.opacity,
                     angle: (angle * 180 / Math.PI) + 90,
                     originX: 'center',
                     originY: 'center',
@@ -871,7 +885,7 @@ const DrawingTool = {
                     obj.evented = false;
                 });
                 this.canvas.freeDrawingBrush = new fabric.PencilBrush(this.canvas);
-                this.canvas.freeDrawingBrush.color = this.currentColor;
+                this.canvas.freeDrawingBrush.color = this.hexToRGBA(this.currentColor, this.opacity);
                 this.canvas.freeDrawingBrush.width = this.brushSize;
                 this.canvas.freeDrawingBrush.strokeLineCap = 'round';
                 this.canvas.freeDrawingBrush.strokeLineJoin = 'round';
@@ -955,6 +969,7 @@ const DrawingTool = {
                 fontSize: this.brushSize * 6,
                 fontFamily: 'Outfit, sans-serif',
                 fontWeight: '600',
+                opacity: this.opacity,
                 selectable: true,
                 evented: true
             });
@@ -1013,8 +1028,20 @@ const DrawingTool = {
      */
     updateBrushColor() {
         if (this.canvas && this.canvas.freeDrawingBrush) {
-            this.canvas.freeDrawingBrush.color = this.currentColor;
+            // Convert color to RGBA with opacity
+            const color = this.hexToRGBA(this.currentColor, this.opacity);
+            this.canvas.freeDrawingBrush.color = color;
         }
+    },
+
+    /**
+     * Convert hex color to RGBA
+     */
+    hexToRGBA(hex, alpha = 1) {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     },
 
     /**
@@ -1023,6 +1050,22 @@ const DrawingTool = {
     updateBrushSize() {
         if (this.canvas && this.canvas.freeDrawingBrush) {
             this.canvas.freeDrawingBrush.width = this.brushSize;
+        }
+    },
+
+    /**
+     * Update opacity for drawing
+     */
+    updateOpacity() {
+        // Update brush color with new opacity
+        this.updateBrushColor();
+        
+        // Update active object if any
+        const activeObject = this.canvas?.getActiveObject();
+        if (activeObject) {
+            activeObject.set('opacity', this.opacity);
+            this.canvas.renderAll();
+            this.autoSave();
         }
     },
 
