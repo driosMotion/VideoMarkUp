@@ -256,6 +256,54 @@ const SnapshotManager = {
                 }
             });
         }
+
+        // Delete All Snapshots button
+        const deleteAllBtn = document.getElementById('deleteAllSnapshotsBtn');
+        if (deleteAllBtn) {
+            deleteAllBtn.addEventListener('click', () => {
+                this.showDeleteAllModal();
+            });
+        }
+
+        // Delete All Modal - Cancel
+        const cancelDeleteAllBtn = document.getElementById('cancelDeleteAll');
+        if (cancelDeleteAllBtn) {
+            cancelDeleteAllBtn.addEventListener('click', () => {
+                this.hideDeleteAllModal();
+            });
+        }
+
+        // Delete All Modal - Confirm
+        const confirmDeleteAllBtn = document.getElementById('confirmDeleteAll');
+        if (confirmDeleteAllBtn) {
+            confirmDeleteAllBtn.addEventListener('click', async () => {
+                await this.deleteAllSnapshots();
+                this.hideDeleteAllModal();
+            });
+        }
+
+        // Delete All Modal - Close on overlay click
+        const deleteAllModal = document.getElementById('deleteAllModal');
+        if (deleteAllModal) {
+            deleteAllModal.addEventListener('click', (e) => {
+                if (e.target === deleteAllModal) {
+                    this.hideDeleteAllModal();
+                }
+            });
+        }
+
+        // Delete All Modal - Close on Escape (guard against multiple bindings)
+        if (!this._deleteAllEscapeListenerBound) {
+            this._deleteAllEscapeListenerBound = true;
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const deleteAllModal = document.getElementById('deleteAllModal');
+                    if (deleteAllModal && !deleteAllModal.hidden) {
+                        this.hideDeleteAllModal();
+                    }
+                }
+            });
+        }
     },
 
     /**
@@ -296,6 +344,92 @@ const SnapshotManager = {
             this.isCreatingSnapshot = true;
             await this.captureSnapshotWithComment(html);
             this.isCreatingSnapshot = false;
+        }
+    },
+
+    /**
+     * Show delete all snapshots confirmation modal
+     */
+    showDeleteAllModal() {
+        const modal = document.getElementById('deleteAllModal');
+        if (modal) {
+            modal.hidden = false;
+        }
+    },
+
+    /**
+     * Hide delete all snapshots confirmation modal
+     */
+    hideDeleteAllModal() {
+        const modal = document.getElementById('deleteAllModal');
+        if (modal) {
+            modal.hidden = true;
+        }
+    },
+
+    /**
+     * Delete all snapshots for the current project
+     */
+    async deleteAllSnapshots() {
+        if (!VideoHandler.currentProjectId) {
+            console.error('No current project ID');
+            return;
+        }
+
+        try {
+            console.log('Deleting all snapshots for project:', VideoHandler.currentProjectId);
+            
+            // Get all snapshots for current project
+            const snapshots = await Storage.getSnapshots(VideoHandler.currentProjectId);
+            console.log('Found snapshots to delete:', snapshots.length);
+            
+            // Delete each snapshot
+            for (const snapshot of snapshots) {
+                console.log('Deleting snapshot:', snapshot.id);
+                await Storage.deleteSnapshot(snapshot.id);
+            }
+
+            console.log('All snapshots deleted successfully');
+
+            // Clear internal state
+            this.snapshots = [];
+            this.currentSnapshotId = null;
+            this.quickCommentSnapshotId = null;
+            
+            // Clear the UI list
+            const snapshotsList = document.getElementById('snapshotsList');
+            if (snapshotsList) {
+                snapshotsList.innerHTML = `
+                    <div class="empty-state" id="emptyState">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                            <polyline points="21 15 16 10 5 21"></polyline>
+                        </svg>
+                        <p>No snapshots yet</p>
+                        <span>Type a comment or select a tool to capture your first snapshot</span>
+                    </div>
+                `;
+            }
+            
+            // Update snapshot count
+            this.updateSnapshotCount();
+            
+            // Clear timeline markers
+            const markers = document.querySelectorAll('.timeline-marker');
+            markers.forEach(marker => marker.remove());
+            
+            // Clear the inline edit mode
+            this.exitInlineEditMode();
+            
+            // Hide any markups
+            DrawingTool.hideMarkups();
+            
+            App.showToast('All snapshots deleted', 'success');
+        } catch (error) {
+            console.error('Error deleting all snapshots:', error);
+            console.error('Error stack:', error.stack);
+            App.showToast('Failed to delete snapshots', 'error');
         }
     },
 

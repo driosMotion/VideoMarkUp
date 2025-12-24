@@ -815,3 +815,57 @@
     vertical-align: baseline;
 }
 
+/* Confirmation Modal */
+.confirmation-modal {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 400px;
+    overflow: hidden;
+    animation: modal-scale-in 0.25s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.confirmation-modal .modal-body {
+    padding: var(--spacing-lg);
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.confirmation-modal .modal-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    justify-content: flex-end;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: none;
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-hover);
+}
+
+.btn-danger {
+    background: #ff3b3b;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #ff0000;
+}
+

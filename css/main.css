@@ -519,6 +519,12 @@ body > .project-dropdown-menu {
     color: var(--text-secondary);
 }
 
+.sidebar-header-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
 .snapshot-count {
     background: var(--accent-primary);
     color: white;
@@ -528,6 +534,35 @@ body > .project-dropdown-menu {
     border-radius: var(--radius-full);
     min-width: 24px;
     text-align: center;
+}
+
+.delete-all-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+    width: 28px;
+    height: 28px;
+}
+
+.delete-all-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+.delete-all-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.delete-all-btn:active {
+    transform: scale(0.95);
 }
 
 .snapshots-list {

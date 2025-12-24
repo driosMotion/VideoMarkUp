@@ -460,7 +460,17 @@
         <aside class="snapshots-sidebar" id="snapshotsSidebar">
             <div class="sidebar-header">
                 <h3>Snapshots</h3>
-                <span class="snapshot-count" id="snapshotCount">0</span>
+                <div class="sidebar-header-right">
+                    <span class="snapshot-count" id="snapshotCount">0</span>
+                    <button class="delete-all-btn" id="deleteAllSnapshotsBtn" data-tooltip="Delete all snapshots">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="snapshots-list" id="snapshotsList">
                 <div class="empty-state" id="emptyState">
@@ -757,6 +767,22 @@
                     <summary class="faq-q">How do I edit the available tags?</summary>
                     <div class="faq-a">Click <span class="faq-chip">Tags</span> in the top bar to open the tag manager.</div>
                 </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete All Snapshots Confirmation Modal -->
+    <div class="modal-overlay" id="deleteAllModal" hidden>
+        <div class="confirmation-modal">
+            <div class="modal-header">
+                <h3>Delete All Snapshots?</h3>
+            </div>
+            <div class="modal-body">
+                <p>This will permanently delete all snapshots for this project. This action cannot be undone.</p>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancelDeleteAll">Cancel</button>
+                <button class="btn btn-danger" id="confirmDeleteAll">Delete All</button>
             </div>
         </div>
     </div>
