@@ -157,6 +157,12 @@ body {
     color: var(--accent-primary);
 }
 
+.logo-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
 /* Project Dropdown */
 .project-dropdown {
     position: relative;
