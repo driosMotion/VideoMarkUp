@@ -4,6 +4,8 @@
  */
 
 const PDFExporter = {
+    logoDataUrl: null, // Will store the Hogarth logo as base64
+    
     /**
      * Initialize PDF exporter
      */
@@ -11,6 +13,25 @@ const PDFExporter = {
         document.getElementById('exportPdfBtn').addEventListener('click', () => {
             this.exportPDF();
         });
+        // Preload logo
+        this.loadLogo();
+    },
+    
+    /**
+     * Load Hogarth logo as base64
+     */
+    async loadLogo() {
+        try {
+            const response = await fetch('HogarthIsologo.png');
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                this.logoDataUrl = reader.result;
+            };
+            reader.readAsDataURL(blob);
+        } catch (error) {
+            console.error('Error loading logo:', error);
+        }
     },
 
     /**
@@ -39,7 +60,7 @@ const PDFExporter = {
             const margin = 15;
 
             // Cover page
-            this.addCoverPage(doc, pageWidth, pageHeight, snapshots);
+            await this.addCoverPage(doc, pageWidth, pageHeight, snapshots);
 
             // Staffing summary page
             this.addStaffingSummaryPage(doc, snapshots, pageWidth, pageHeight, margin);
@@ -65,10 +86,39 @@ const PDFExporter = {
     /**
      * Add cover page to PDF
      */
-    addCoverPage(doc, pageWidth, pageHeight, snapshots) {
+    async addCoverPage(doc, pageWidth, pageHeight, snapshots) {
         // Background
         doc.setFillColor(13, 13, 15);
         doc.rect(0, 0, pageWidth, pageHeight, 'F');
+
+        // Add first frame snapshot if video is loaded
+        const videoElement = document.getElementById('videoPlayer');
+        if (videoElement && videoElement.src) {
+            try {
+                const firstFrameData = await this.captureFirstFrame(videoElement);
+                if (firstFrameData) {
+                    const img = await this.loadImage(firstFrameData);
+                    const maxWidth = 100;
+                    const maxHeight = 56;
+                    
+                    let imgWidth = img.width;
+                    let imgHeight = img.height;
+                    const scale = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+                    imgWidth *= scale;
+                    imgHeight *= scale;
+                    
+                    const imgX = (pageWidth - imgWidth) / 2;
+                    const imgY = 30;
+                    
+                    doc.addImage(firstFrameData, 'PNG', imgX, imgY, imgWidth, imgHeight);
+                    doc.setDrawColor(60, 60, 70);
+                    doc.setLineWidth(0.5);
+                    doc.rect(imgX, imgY, imgWidth, imgHeight, 'S');
+                }
+            } catch (error) {
+                console.error('Error adding first frame to cover:', error);
+            }
+        }
 
         // Title - handle long names
         doc.setTextColor(240, 240, 242);
@@ -87,7 +137,7 @@ const PDFExporter = {
         
         // If still too long, split into lines
         const titleLines = doc.splitTextToSize(projectName, maxTitleWidth);
-        const titleStartY = pageHeight / 2 - 30 - ((titleLines.length - 1) * fontSize * 0.4);
+        const titleStartY = pageHeight / 2 + 10 - ((titleLines.length - 1) * fontSize * 0.4);
         doc.text(titleLines, pageWidth / 2, titleStartY, { align: 'center' });
 
         // Subtitle
@@ -109,6 +159,9 @@ const PDFExporter = {
         doc.setFontSize(10);
         doc.setTextColor(96, 96, 104);
         doc.text('Generated with Video Markup', pageWidth / 2, pageHeight - 15, { align: 'center' });
+        
+        // Add Hogarth logo
+        this.addLogoToPage(doc, pageWidth, pageHeight);
     },
 
     /**
@@ -213,6 +266,9 @@ const PDFExporter = {
         doc.setFontSize(8);
         doc.setTextColor(96, 96, 104);
         doc.text(`Page ${index + 1}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+        
+        // Add Hogarth logo
+        this.addLogoToPage(doc, pageWidth, pageHeight);
     },
 
     /**
@@ -480,6 +536,56 @@ const PDFExporter = {
         doc.setFontSize(8);
         doc.setTextColor(96, 96, 104);
         doc.text('Page 2 - Staffing Summary', pageWidth / 2, pageHeight - 8, { align: 'center' });
+        
+        // Add Hogarth logo
+        this.addLogoToPage(doc, pageWidth, pageHeight);
+    },
+    
+    /**
+     * Add Hogarth logo to bottom right of page
+     */
+    addLogoToPage(doc, pageWidth, pageHeight) {
+        if (this.logoDataUrl) {
+            const logoSize = 12;
+            const margin = 10;
+            const logoX = pageWidth - logoSize - margin;
+            const logoY = pageHeight - logoSize - margin;
+            
+            try {
+                doc.addImage(this.logoDataUrl, 'PNG', logoX, logoY, logoSize, logoSize);
+            } catch (error) {
+                console.error('Error adding logo to page:', error);
+            }
+        }
+    },
+    
+    /**
+     * Capture first frame of video
+     */
+    async captureFirstFrame(videoElement) {
+        return new Promise((resolve) => {
+            const canvas = document.createElement('canvas');
+            const currentTime = videoElement.currentTime;
+            
+            // Set to first frame
+            videoElement.currentTime = 0;
+            
+            const captureFrame = () => {
+                canvas.width = videoElement.videoWidth;
+                canvas.height = videoElement.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(videoElement, 0, 0);
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // Restore original time
+                videoElement.currentTime = currentTime;
+                
+                resolve(dataUrl);
+            };
+            
+            // Wait for seek to complete
+            videoElement.addEventListener('seeked', captureFrame, { once: true });
+        });
     }
 };
 
