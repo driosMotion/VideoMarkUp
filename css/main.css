@@ -412,6 +412,14 @@ body > .project-dropdown-menu {
     gap: var(--spacing-md);
 }
 
+.header-credit {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    opacity: 0.6;
+    font-weight: 400;
+    margin-right: var(--spacing-sm);
+}
+
 .header-divider {
     width: 1px;
     height: 24px;
