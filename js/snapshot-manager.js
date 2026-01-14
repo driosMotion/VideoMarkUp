@@ -958,9 +958,33 @@ const SnapshotManager = {
             range.setEndAfter(span);
             selection.removeAllRanges();
             selection.addRange(range);
+            
+            // Auto-save the color change
+            this.saveColorChange();
         } catch (e) {
             console.error('Error applying color:', e);
         }
+    },
+    
+    /**
+     * Save color change with debouncing
+     */
+    saveColorChange() {
+        // Clear existing timeout
+        if (this.colorSaveTimeout) {
+            clearTimeout(this.colorSaveTimeout);
+        }
+        
+        // Debounce save to avoid too many saves
+        this.colorSaveTimeout = setTimeout(() => {
+            const snapshotId = this.currentSnapshotId || this.quickCommentSnapshotId;
+            if (snapshotId) {
+                // Get fabric data if canvas exists
+                const fabricData = DrawingTool.canvas ? DrawingTool.canvas.toJSON() : undefined;
+                this.saveInlineEdit(snapshotId, fabricData, true);
+                console.log('💾 Auto-saved color change for snapshot:', snapshotId);
+            }
+        }, 500); // Wait 500ms after last color change
     },
 
     /**
