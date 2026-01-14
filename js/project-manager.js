@@ -284,7 +284,7 @@ const ProjectManager = {
         SnapshotManager.clearList();
         
         // Clear inline comment and editing state
-        SnapshotManager.clearInlineEdit();
+        SnapshotManager.exitInlineEditMode();
         
         // Clear any active tags and hours in the inline panel
         const inlinePanel = document.querySelector('.tags-grid-inline');
