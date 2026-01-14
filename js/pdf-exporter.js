@@ -19,19 +19,31 @@ const PDFExporter = {
     
     /**
      * Load Hogarth logo as base64
+     * Uses Image loading for file:// protocol compatibility
      */
     async loadLogo() {
-        try {
-            const response = await fetch('HogarthIsologo.png');
-            const blob = await response.blob();
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                this.logoDataUrl = reader.result;
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    this.logoDataUrl = canvas.toDataURL('image/png');
+                    resolve();
+                } catch (error) {
+                    console.error('Error converting logo to base64:', error);
+                    reject(error);
+                }
             };
-            reader.readAsDataURL(blob);
-        } catch (error) {
-            console.error('Error loading logo:', error);
-        }
+            img.onerror = (error) => {
+                console.error('Error loading logo:', error);
+                reject(error);
+            };
+            img.src = 'HogarthIsologo.png';
+        });
     },
 
     /**
