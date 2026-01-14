@@ -18,6 +18,36 @@
     <link rel="stylesheet" href="css/drawing-tools.css">
 </head>
 <body>
+    <!-- Login Overlay -->
+    <div id="loginOverlay" class="login-overlay" hidden>
+        <div class="login-container">
+            <div class="login-header">
+                <img src="HogarthIsologo.png" alt="Hogarth" class="login-logo">
+                <h1>Video Markup</h1>
+                <p>Post-Production Coordinator</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="login-field">
+                    <label for="loginPassword">Password</label>
+                    <input 
+                        type="password" 
+                        id="loginPassword" 
+                        placeholder="Enter password" 
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+                <div id="loginError" class="login-error" style="display: none;"></div>
+                <button type="submit" id="loginBtn" class="login-btn">Login</button>
+            </form>
+            <div class="login-footer">
+                <p>made by Production Team - Hogarth Argentina</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Content (Hidden until authenticated) -->
+    <div id="appContent" hidden>
     <!-- Header -->
     <header class="app-header">
         <div class="header-left">
@@ -837,12 +867,17 @@
         <div class="tooltip-content"></div>
         <div class="tooltip-shortcut"></div>
     </div>
+    
+    </div><!-- End appContent -->
 
     <!-- Scripts (Local Libraries) -->
     <script src="libs/fabric.min.js"></script>
     <script src="libs/dexie.js"></script>
     <script src="libs/jspdf.umd.min.js"></script>
     <script src="libs/jszip.min.js"></script>
+    
+    <!-- Authentication (Load First) -->
+    <script src="js/auth.js"></script>
     
     <!-- App Scripts - Core Modules (Load First) -->
     <script src="js/error-handler.js"></script>
