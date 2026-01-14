@@ -54,9 +54,24 @@ const ProjectSharing = {
                 videoFileName: project.videoFileName,
                 createdAt: project.createdAt,
                 exportedAt: new Date().toISOString(),
-                snapshotCount: snapshots.length
+                snapshotCount: snapshots.length,
+                includesPDF: true
             };
             zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+            
+            // Generate and add PDF report
+            if (snapshots.length > 0) {
+                try {
+                    App.showToast('Generating PDF report...', 'info');
+                    const pdfBlob = await PDFExporter.generatePDFBlob();
+                    const pdfFileName = `${project.name.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
+                    zip.file(pdfFileName, pdfBlob);
+                } catch (pdfError) {
+                    console.error('PDF generation error:', pdfError);
+                    // Continue without PDF if generation fails
+                    App.showToast('Warning: Could not include PDF in export', 'warning');
+                }
+            }
 
             // Add video file
             if (project.videoData) {

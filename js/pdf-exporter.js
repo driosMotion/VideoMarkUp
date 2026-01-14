@@ -60,29 +60,8 @@ const PDFExporter = {
         App.showToast('Generating PDF...', 'info');
 
         try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({
-                orientation: 'landscape',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            const margin = 15;
-
-            // Cover page
-            await this.addCoverPage(doc, pageWidth, pageHeight, snapshots);
-
-            // Staffing summary page
-            this.addStaffingSummaryPage(doc, snapshots, pageWidth, pageHeight, margin);
-
-            // Snapshot pages
-            for (let i = 0; i < snapshots.length; i++) {
-                doc.addPage();
-                await this.addSnapshotPage(doc, snapshots[i], i + 1, snapshots.length, pageWidth, pageHeight, margin);
-            }
-
+            const doc = await this.generatePDFDocument();
+            
             // Save the PDF
             const project = await Storage.getProject(VideoHandler.currentProjectId);
             const fileName = `${project.name || 'VideoMarkup'}_Report_${this.formatDate(new Date())}.pdf`;
@@ -93,6 +72,52 @@ const PDFExporter = {
             console.error('PDF export error:', error);
             App.showToast('Error exporting PDF', 'error');
         }
+    },
+    
+    /**
+     * Generate PDF document (without saving)
+     * @returns {Promise<jsPDF>} The PDF document
+     */
+    async generatePDFDocument() {
+        const snapshots = await SnapshotManager.getAllSnapshots();
+        
+        if (snapshots.length === 0) {
+            throw new Error('No snapshots to export');
+        }
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 15;
+
+        // Cover page
+        await this.addCoverPage(doc, pageWidth, pageHeight, snapshots);
+
+        // Staffing summary page
+        this.addStaffingSummaryPage(doc, snapshots, pageWidth, pageHeight, margin);
+
+        // Snapshot pages
+        for (let i = 0; i < snapshots.length; i++) {
+            doc.addPage();
+            await this.addSnapshotPage(doc, snapshots[i], i + 1, snapshots.length, pageWidth, pageHeight, margin);
+        }
+
+        return doc;
+    },
+    
+    /**
+     * Generate PDF as blob
+     * @returns {Promise<Blob>} The PDF as a blob
+     */
+    async generatePDFBlob() {
+        const doc = await this.generatePDFDocument();
+        return doc.output('blob');
     },
 
     /**
