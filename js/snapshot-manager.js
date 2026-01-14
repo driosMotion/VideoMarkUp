@@ -416,8 +416,10 @@ const SnapshotManager = {
             this.updateSnapshotCount();
             
             // Clear timeline markers
-            const markers = document.querySelectorAll('.timeline-marker');
-            markers.forEach(marker => marker.remove());
+            const markersContainer = document.getElementById('snapshotMarkers');
+            if (markersContainer) {
+                markersContainer.innerHTML = '';
+            }
             
             // Clear the inline edit mode
             this.exitInlineEditMode();
