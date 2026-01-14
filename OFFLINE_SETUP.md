@@ -1,17 +1,20 @@
 # Offline Setup Guide
 
-This app has been configured to work 100% offline with no internet connection required.
+This app works 100% offline with no internet connection required.
 
-## Quick Start (Already Set Up)
+## Quick Start
 
-If you have the `libs/` and `fonts/` directories populated with files, you're ready to go:
+All dependencies are included in the repository:
 
-1. Double-click `index.html`
-2. The app will load and run completely offline
+1. Clone/download the repository
+2. Double-click `index.html`
+3. The app loads and runs completely offline
 
-## First-Time Setup
+No additional setup needed! The `libs/` and `fonts/` directories are included with all necessary files.
 
-If the `libs/` and `fonts/` directories are empty or missing, download the dependencies:
+## Manual Setup (If Dependencies Are Missing)
+
+If for some reason the `libs/` and `fonts/` directories are empty or missing, download the dependencies:
 
 ### Download JavaScript Libraries
 
@@ -94,10 +97,11 @@ Once set up, the app works completely offline:
 
 ## Notes
 
-- The `libs/` and `fonts/` folders are in `.gitignore` to keep the repo small
-- You'll need to download these dependencies once on each machine
+- The `libs/` and `fonts/` folders are included in the repository (~1.5MB total)
+- Works both online (Vercel) and offline (double-click HTML)
 - All app data is stored in browser IndexedDB (persists between sessions)
 - Works best in modern browsers (Chrome, Firefox, Safari, Edge)
+- No external CDN dependencies - fully self-contained
 
 ---
 

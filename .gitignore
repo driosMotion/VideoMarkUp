@@ -3,7 +3,3 @@ README.md
 
 # System files
 .DS_Store
-
-# External dependencies (download separately for offline use)
-libs/
-fonts/
