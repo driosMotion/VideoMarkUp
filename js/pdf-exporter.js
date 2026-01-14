@@ -298,17 +298,33 @@ const PDFExporter = {
     },
 
     /**
-     * Convert hex color to RGB
-     * @param {string} hex - Hex color code
+     * Convert hex or rgb color to RGB object
+     * @param {string} color - Hex color code (#ff3b3b) or rgb string (rgb(255, 59, 59))
      * @returns {Object}
      */
-    hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : { r: 136, g: 136, b: 136 };
+    hexToRgb(color) {
+        // Handle rgb() or rgba() format
+        const rgbMatch = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color);
+        if (rgbMatch) {
+            return {
+                r: parseInt(rgbMatch[1]),
+                g: parseInt(rgbMatch[2]),
+                b: parseInt(rgbMatch[3])
+            };
+        }
+        
+        // Handle hex format
+        const hexMatch = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+        if (hexMatch) {
+            return {
+                r: parseInt(hexMatch[1], 16),
+                g: parseInt(hexMatch[2], 16),
+                b: parseInt(hexMatch[3], 16)
+            };
+        }
+        
+        // Default fallback (light gray)
+        return { r: 240, g: 240, b: 242 };
     },
 
     /**
