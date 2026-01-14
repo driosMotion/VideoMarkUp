@@ -266,29 +266,93 @@ const TagEditor = {
      * Add a new custom tag
      */
     addNewTag() {
-        const name = prompt('Enter tag name:');
-        if (!name || !name.trim()) return;
-
-        const color = prompt('Enter color (hex, e.g. #ff0000):', '#ff6b6b');
-        if (!color || !color.trim()) return;
-
-        // Generate ID from name
-        const id = name.toLowerCase().replace(/\s+/g, '_');
-
-        // Check if tag with this ID already exists
-        if (this.allTags.find(t => t.id === id)) {
-            App.showToast('A tag with this name already exists', 'warning');
-            return;
-        }
-
-        // Add to custom tags
-        const newTag = { id, label: name.trim(), color: color.trim(), isDefault: false };
-        this.customTags.push(newTag);
-        this.saveCustomTags();
-
-        // Refresh modal
-        this.openModal();
-        App.showToast('Tag added successfully', 'success');
+        const modal = document.getElementById('addTagModal');
+        const nameInput = document.getElementById('newTagName');
+        const confirmBtn = document.getElementById('confirmAddTagBtn');
+        const cancelBtn = document.getElementById('cancelAddTagBtn');
+        const closeBtn = document.getElementById('addTagModalClose');
+        const colorSwatches = modal.querySelectorAll('.tag-color-swatch');
+        const previewDot = modal.querySelector('.tag-preview-dot');
+        const previewText = modal.querySelector('.tag-preview-text');
+        
+        let selectedColor = '#ff3b3b'; // Default color
+        
+        // Reset form
+        nameInput.value = '';
+        previewText.textContent = 'New Tag';
+        previewDot.style.background = selectedColor;
+        
+        // Mark first color as active
+        colorSwatches.forEach(swatch => swatch.classList.remove('active'));
+        colorSwatches[0].classList.add('active');
+        
+        // Show modal
+        modal.hidden = false;
+        nameInput.focus();
+        
+        // Handle color selection
+        const colorClickHandler = (e) => {
+            if (e.target.classList.contains('tag-color-swatch')) {
+                colorSwatches.forEach(s => s.classList.remove('active'));
+                e.target.classList.add('active');
+                selectedColor = e.target.dataset.color;
+                previewDot.style.background = selectedColor;
+            }
+        };
+        
+        // Handle name input
+        const nameInputHandler = () => {
+            const name = nameInput.value.trim() || 'New Tag';
+            previewText.textContent = name;
+        };
+        
+        // Handle confirm
+        const confirmHandler = () => {
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                App.showToast('Please enter a tag name', 'warning');
+                return;
+            }
+            
+            // Generate ID from name
+            const id = name.toLowerCase().replace(/\s+/g, '_');
+            
+            // Check if tag with this ID already exists
+            if (this.allTags.find(t => t.id === id)) {
+                App.showToast('A tag with this name already exists', 'warning');
+                return;
+            }
+            
+            // Add to custom tags
+            const newTag = { id, label: name, color: selectedColor, isDefault: false };
+            this.customTags.push(newTag);
+            this.saveCustomTags();
+            
+            // Close modal and cleanup
+            cleanup();
+            
+            // Refresh main modal
+            this.openModal();
+            App.showToast('Tag added successfully', 'success');
+        };
+        
+        // Handle cancel/close
+        const cleanup = () => {
+            modal.hidden = true;
+            modal.removeEventListener('click', colorClickHandler);
+            nameInput.removeEventListener('input', nameInputHandler);
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cleanup);
+            closeBtn.removeEventListener('click', cleanup);
+        };
+        
+        // Add event listeners
+        modal.addEventListener('click', colorClickHandler);
+        nameInput.addEventListener('input', nameInputHandler);
+        confirmBtn.addEventListener('click', confirmHandler);
+        cancelBtn.addEventListener('click', cleanup);
+        closeBtn.addEventListener('click', cleanup);
     },
 
     /**

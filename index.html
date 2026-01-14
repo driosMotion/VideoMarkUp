@@ -702,6 +702,55 @@
         </div>
     </div>
 
+    <!-- Add New Tag Modal -->
+    <div class="modal-overlay" id="addTagModal" hidden>
+        <div class="add-tag-modal">
+            <div class="modal-header">
+                <h3>Add New Tag</h3>
+                <button class="modal-close" id="addTagModalClose">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="add-tag-content">
+                <div class="add-tag-field">
+                    <label for="newTagName">Tag Name</label>
+                    <input type="text" id="newTagName" placeholder="e.g. Color Grading" maxlength="20">
+                </div>
+                <div class="add-tag-field">
+                    <label>Tag Color</label>
+                    <div class="tag-color-picker">
+                        <button class="tag-color-swatch active" data-color="#ff3b3b" style="background:#ff3b3b" title="Red"></button>
+                        <button class="tag-color-swatch" data-color="#ff6b35" style="background:#ff6b35" title="Orange"></button>
+                        <button class="tag-color-swatch" data-color="#ffcc00" style="background:#ffcc00" title="Yellow"></button>
+                        <button class="tag-color-swatch" data-color="#10dc78" style="background:#10dc78" title="Lime"></button>
+                        <button class="tag-color-swatch" data-color="#00d68f" style="background:#00d68f" title="Green"></button>
+                        <button class="tag-color-swatch" data-color="#00d4ff" style="background:#00d4ff" title="Cyan"></button>
+                        <button class="tag-color-swatch" data-color="#0095ff" style="background:#0095ff" title="Blue"></button>
+                        <button class="tag-color-swatch" data-color="#9b59b6" style="background:#9b59b6" title="Purple"></button>
+                        <button class="tag-color-swatch" data-color="#ff10f0" style="background:#ff10f0" title="Pink"></button>
+                        <button class="tag-color-swatch" data-color="#e91e63" style="background:#e91e63" title="Magenta"></button>
+                        <button class="tag-color-swatch" data-color="#795548" style="background:#795548" title="Brown"></button>
+                        <button class="tag-color-swatch" data-color="#607d8b" style="background:#607d8b" title="Gray"></button>
+                    </div>
+                </div>
+                <div class="add-tag-preview">
+                    <span class="preview-label">Preview:</span>
+                    <div class="tag-preview-badge">
+                        <span class="tag-preview-dot" style="background:#ff3b3b"></span>
+                        <span class="tag-preview-text">New Tag</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelAddTagBtn">Cancel</button>
+                <button class="btn btn-primary" id="confirmAddTagBtn">Add Tag</button>
+            </div>
+        </div>
+    </div>
+
     <!-- FAQ Modal -->
     <div class="modal-overlay" id="faqModal" hidden>
         <div class="faq-modal">
