@@ -283,6 +283,18 @@ const ProjectManager = {
         // Clear current state
         SnapshotManager.clearList();
         
+        // Clear inline comment and editing state
+        SnapshotManager.clearInlineEdit();
+        
+        // Clear any active tags and hours in the inline panel
+        const inlinePanel = document.querySelector('.tags-grid-inline');
+        if (inlinePanel) {
+            const tagBtns = inlinePanel.querySelectorAll('.tag-btn.active');
+            tagBtns.forEach(btn => btn.classList.remove('active'));
+            const hourInputs = inlinePanel.querySelectorAll('.tag-hours-input');
+            hourInputs.forEach(input => input.value = '');
+        }
+        
         // Load the selected project
         await VideoHandler.loadProject(projectId);
         

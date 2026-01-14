@@ -284,6 +284,22 @@ const VideoHandler = {
 
         this.currentProjectId = projectId;
         
+        // Reset video player state first
+        this.video.pause();
+        this.video.currentTime = 0;
+        
+        // Clear any existing video source and revoke old blob URL
+        if (this.video.src) {
+            URL.revokeObjectURL(this.video.src);
+            this.video.src = '';
+            this.video.load(); // Force video element to reset
+        }
+        
+        // Clear drawing canvas if it exists
+        if (window.DrawingTool && window.DrawingTool.canvas) {
+            window.DrawingTool.canvas.clear();
+        }
+        
         // Create URL from stored blob
         const url = URL.createObjectURL(project.videoData);
         this.video.src = url;
@@ -301,7 +317,7 @@ const VideoHandler = {
         document.getElementById('exportProjectBtn').disabled = false;
 
         // Wait for video metadata before loading snapshots (need duration for markers)
-        this.video.addEventListener('loadedmetadata', async () => {
+        const loadSnapshots = async () => {
             // Load snapshots after video metadata is loaded
             const snapshots = await Storage.getSnapshots(projectId);
             SnapshotManager.snapshots = snapshots; // Store in manager
@@ -312,7 +328,21 @@ const VideoHandler = {
             // Sort snapshots by timecode after loading
             SnapshotManager.sortSnapshotsByTimecode();
             SnapshotManager.updateSnapshotCount();
-        }, { once: true });
+            
+            // Hide empty state if we have snapshots
+            if (snapshots.length > 0) {
+                document.getElementById('emptyState').hidden = true;
+            }
+        };
+        
+        // Check if metadata is already available (for quick switches)
+        if (this.video.readyState >= 1) {
+            // Metadata already loaded
+            await loadSnapshots();
+        } else {
+            // Wait for metadata to load
+            this.video.addEventListener('loadedmetadata', loadSnapshots, { once: true });
+        }
     },
 
     /**
