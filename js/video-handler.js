@@ -17,6 +17,7 @@ const VideoHandler = {
     currentChannel: 'rgb', // Current channel view
     currentExposure: 0, // Current exposure value
     currentSpeed: 1, // Current playback speed
+    isImageProject: false, // Track if current project is image-only
 
     /**
      * Initialize video handler
@@ -46,10 +47,25 @@ const VideoHandler = {
         videoInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if (files.length > 0) {
-                if (files.length === 1) {
-                    this.loadVideo(files[0]);
-                } else {
-                    await this.batchImportVideos(files);
+                // Separate images and videos
+                const imageFiles = files.filter(f => f.type.startsWith('image/'));
+                const videoFiles = files.filter(f => f.type.startsWith('video/'));
+                
+                // If only images, create image project
+                if (imageFiles.length > 0 && videoFiles.length === 0) {
+                    await this.createImageProject(imageFiles);
+                }
+                // If only videos
+                else if (videoFiles.length > 0 && imageFiles.length === 0) {
+                    if (videoFiles.length === 1) {
+                        this.loadVideo(videoFiles[0]);
+                    } else {
+                        await this.batchImportVideos(videoFiles);
+                    }
+                }
+                // If mixed
+                else if (imageFiles.length > 0 && videoFiles.length > 0) {
+                    App.showToast('Please upload either videos or images, not both', 'warning');
                 }
             }
         });
@@ -69,11 +85,25 @@ const VideoHandler = {
             uploadArea.classList.remove('drag-over');
             const files = Array.from(e.dataTransfer.files);
             if (files.length > 0) {
-                if (files.length === 1) {
-                    // Accept any file - browser will determine if it can play it
-                    this.loadVideo(files[0]);
-                } else {
-                    await this.batchImportVideos(files);
+                // Separate images and videos
+                const imageFiles = files.filter(f => f.type.startsWith('image/'));
+                const videoFiles = files.filter(f => f.type.startsWith('video/'));
+                
+                // If only images, create image project
+                if (imageFiles.length > 0 && videoFiles.length === 0) {
+                    await this.createImageProject(imageFiles);
+                }
+                // If only videos
+                else if (videoFiles.length > 0 && imageFiles.length === 0) {
+                    if (videoFiles.length === 1) {
+                        this.loadVideo(videoFiles[0]);
+                    } else {
+                        await this.batchImportVideos(videoFiles);
+                    }
+                }
+                // If mixed
+                else if (imageFiles.length > 0 && videoFiles.length > 0) {
+                    App.showToast('Please upload either videos or images, not both', 'warning');
                 }
             }
         });
@@ -343,6 +373,194 @@ const VideoHandler = {
     },
 
     /**
+     * Create an image-only project with multiple images as snapshots
+     * @param {File[]} imageFiles - Array of image files
+     */
+    async createImageProject(imageFiles) {
+        if (imageFiles.length === 0) {
+            App.showToast('No image files detected', 'warning');
+            return;
+        }
+
+        App.showToast(`Importing ${imageFiles.length} image(s)...`, 'info');
+
+        try {
+            // Create project name from first image or use "Image Project"
+            const projectName = imageFiles.length === 1 
+                ? imageFiles[0].name.replace(/\.[^/.]+$/, '')
+                : `Image Project (${imageFiles.length} images)`;
+
+            // Create a placeholder "video" blob for image projects
+            // This allows the project structure to remain consistent
+            const placeholderBlob = new Blob(['IMAGE_PROJECT'], { type: 'text/plain' });
+
+            // Create project in storage
+            this.currentProjectId = await Storage.createProject({
+                name: projectName,
+                videoFileName: 'IMAGE_PROJECT',
+                videoData: placeholderBlob,
+                isImageProject: true
+            });
+
+            this.isImageProject = true;
+
+            // Update UI for image project
+            document.getElementById('projectName').textContent = projectName;
+            document.getElementById('uploadArea').hidden = true;
+            document.getElementById('videoPlayerContainer').hidden = false;
+            document.getElementById('exportPdfBtn').disabled = false;
+            document.getElementById('exportProjectBtn').disabled = false;
+
+            // Hide video element, show snapshot overlay instead
+            this.video.hidden = true;
+            const snapshotOverlay = document.getElementById('snapshotOverlay');
+            snapshotOverlay.hidden = false;
+            snapshotOverlay.style.width = '100%';
+            snapshotOverlay.style.height = '100%';
+            snapshotOverlay.style.objectFit = 'contain';
+
+            // Hide playback controls for image projects
+            this.hidePlaybackControls();
+
+            // Create snapshots for each image
+            for (let i = 0; i < imageFiles.length; i++) {
+                const file = imageFiles[i];
+                App.showToast(`Processing image ${i + 1}/${imageFiles.length}`, 'info');
+
+                try {
+                    // Read image as data URL
+                    const imageDataUrl = await this.readImageAsDataURL(file);
+
+                    // Create snapshot with the image
+                    const snapshotId = await window.SnapshotManager.createSnapshotFromImage(
+                        this.currentProjectId,
+                        imageDataUrl,
+                        file.name,
+                        i
+                    );
+
+                } catch (error) {
+                    console.error(`Error processing ${file.name}:`, error);
+                }
+            }
+
+            // Load snapshots and display first image
+            await window.SnapshotManager.loadSnapshots(this.currentProjectId);
+            const snapshots = await window.SnapshotManager.getAllSnapshots();
+            
+            if (snapshots.length > 0) {
+                // Display first image
+                snapshotOverlay.src = snapshots[0].imageData;
+                window.SnapshotManager.currentImageIndex = 0;
+            }
+
+            App.showToast(`✓ Created project with ${imageFiles.length} image(s)`, 'success');
+
+        } catch (error) {
+            console.error('Error creating image project:', error);
+            App.showToast('Error creating image project', 'error');
+        }
+    },
+
+    /**
+     * Read an image file as a data URL
+     * @param {File} file - Image file
+     * @returns {Promise<string>} Data URL
+     */
+    readImageAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    },
+
+    /**
+     * Hide playback controls for image-only projects
+     */
+    hidePlaybackControls() {
+        // Hide play/pause and frame navigation
+        const controlsToHide = [
+            'playPauseBtn',
+            'prevFrameBtn',
+            'nextFrameBtn',
+            'loopBtn',
+            'speedBtn',
+            'muteBtn',
+            'volumeSlider',
+            'exposureSlider',
+            'exposureResetBtn',
+            'channelBtn',
+            'currentTime',
+            'duration'
+        ];
+
+        controlsToHide.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
+
+        // Hide timecode separator
+        const separator = document.querySelector('.timecode-separator');
+        if (separator) separator.style.display = 'none';
+
+        // Hide progress bar
+        const progressContainer = document.getElementById('progressContainer');
+        if (progressContainer) {
+            progressContainer.style.display = 'none';
+        }
+
+        // Hide control dividers near hidden buttons
+        const controlDividers = document.querySelectorAll('.controls-divider');
+        controlDividers.forEach((div, index) => {
+            if (index < 4) div.style.display = 'none';
+        });
+    },
+
+    /**
+     * Show playback controls for video projects
+     */
+    showPlaybackControls() {
+        const controlsToShow = [
+            'playPauseBtn',
+            'prevFrameBtn',
+            'nextFrameBtn',
+            'loopBtn',
+            'speedBtn',
+            'muteBtn',
+            'volumeSlider',
+            'exposureSlider',
+            'exposureResetBtn',
+            'channelBtn',
+            'currentTime',
+            'duration'
+        ];
+
+        controlsToShow.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style.display = '';
+            }
+        });
+
+        const separator = document.querySelector('.timecode-separator');
+        if (separator) separator.style.display = '';
+
+        const progressContainer = document.getElementById('progressContainer');
+        if (progressContainer) {
+            progressContainer.style.display = '';
+        }
+
+        const controlDividers = document.querySelectorAll('.controls-divider');
+        controlDividers.forEach(div => {
+            div.style.display = '';
+        });
+    },
+
+    /**
      * Load an existing project
      * @param {number} projectId - Project ID
      */
@@ -354,6 +572,10 @@ const VideoHandler = {
         }
 
         this.currentProjectId = projectId;
+        
+        // Check if this is an image project
+        const isImageProject = project.videoFileName === 'IMAGE_PROJECT' || project.isImageProject;
+        this.isImageProject = isImageProject;
         
         // Reset video player state first
         this.video.pause();
@@ -378,48 +600,80 @@ const VideoHandler = {
             snapshotOverlay.src = '';
         }
         
-        // Create URL from stored blob
-        const url = URL.createObjectURL(project.videoData);
-        this.video.src = url;
-
-        // Store file info for metadata (convert Blob back to File-like object)
-        this.currentFile = new File([project.videoData], project.videoFileName, { 
-            type: project.videoData.type 
-        });
-
         // Update UI
-        document.getElementById('projectName').textContent = project.videoFileName;
+        document.getElementById('projectName').textContent = project.name || project.videoFileName;
         document.getElementById('uploadArea').hidden = true;
         document.getElementById('videoPlayerContainer').hidden = false;
         document.getElementById('exportPdfBtn').disabled = false;
         document.getElementById('exportProjectBtn').disabled = false;
 
-        // Wait for video metadata before loading snapshots (need duration for markers)
-        const loadSnapshots = async () => {
-            // Load snapshots after video metadata is loaded
+        if (isImageProject) {
+            // Handle image project
+            this.video.hidden = true;
+            snapshotOverlay.hidden = false;
+            snapshotOverlay.style.width = '100%';
+            snapshotOverlay.style.height = '100%';
+            snapshotOverlay.style.objectFit = 'contain';
+            
+            // Hide playback controls
+            this.hidePlaybackControls();
+            
+            // Load snapshots immediately (no video metadata needed)
             const snapshots = await Storage.getSnapshots(projectId);
-            SnapshotManager.snapshots = snapshots; // Store in manager
+            SnapshotManager.snapshots = snapshots;
             snapshots.forEach(snapshot => {
                 SnapshotManager.addSnapshotToList(snapshot);
-                SnapshotManager.addTimelineMarker(snapshot);
             });
-            // Sort snapshots by timecode after loading
             SnapshotManager.sortSnapshotsByTimecode();
             SnapshotManager.updateSnapshotCount();
             
-            // Hide empty state if we have snapshots
+            // Display first image
             if (snapshots.length > 0) {
+                snapshotOverlay.src = snapshots[0].originalImage || snapshots[0].imageData;
+                SnapshotManager.currentImageIndex = 0;
                 document.getElementById('emptyState').hidden = true;
             }
-        };
-        
-        // Check if metadata is already available (for quick switches)
-        if (this.video.readyState >= 1) {
-            // Metadata already loaded
-            await loadSnapshots();
         } else {
-            // Wait for metadata to load
-            this.video.addEventListener('loadedmetadata', loadSnapshots, { once: true });
+            // Handle video project
+            this.video.hidden = false;
+            this.showPlaybackControls();
+            
+            // Create URL from stored blob
+            const url = URL.createObjectURL(project.videoData);
+            this.video.src = url;
+
+            // Store file info for metadata (convert Blob back to File-like object)
+            this.currentFile = new File([project.videoData], project.videoFileName, { 
+                type: project.videoData.type 
+            });
+
+            // Wait for video metadata before loading snapshots (need duration for markers)
+            const loadSnapshots = async () => {
+                // Load snapshots after video metadata is loaded
+                const snapshots = await Storage.getSnapshots(projectId);
+                SnapshotManager.snapshots = snapshots; // Store in manager
+                snapshots.forEach(snapshot => {
+                    SnapshotManager.addSnapshotToList(snapshot);
+                    SnapshotManager.addTimelineMarker(snapshot);
+                });
+                // Sort snapshots by timecode after loading
+                SnapshotManager.sortSnapshotsByTimecode();
+                SnapshotManager.updateSnapshotCount();
+                
+                // Hide empty state if we have snapshots
+                if (snapshots.length > 0) {
+                    document.getElementById('emptyState').hidden = true;
+                }
+            };
+            
+            // Check if metadata is already available (for quick switches)
+            if (this.video.readyState >= 1) {
+                // Metadata already loaded
+                await loadSnapshots();
+            } else {
+                // Wait for metadata to load
+                this.video.addEventListener('loadedmetadata', loadSnapshots, { once: true });
+            }
         }
     },
 

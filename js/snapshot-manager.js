@@ -13,6 +13,7 @@ const SnapshotManager = {
     quickCommentSnapshotId: null,
     isCreatingSnapshot: false,
     _inlineTagsDelegationBound: false,
+    currentImageIndex: 0, // For image-only projects
 
     /**
      * Reset ONLY the tags/hours UI (does not clear comment)
@@ -498,6 +499,29 @@ const SnapshotManager = {
         // Enter inline edit mode immediately (preserve comment to avoid cursor jump)
         this.enterInlineEditMode(snapshotId, imageData, null, true);
         
+        return snapshotId;
+    },
+
+    /**
+     * Create a snapshot from an image file (for image-only projects)
+     * @param {number} projectId - Project ID
+     * @param {string} imageDataUrl - Image data URL
+     * @param {string} imageName - Name of the image file
+     * @param {number} index - Index/order of the image
+     * @returns {Promise<number>} Snapshot ID
+     */
+    async createSnapshotFromImage(projectId, imageDataUrl, imageName, index) {
+        // Use index as "timestamp" for sorting
+        const snapshotId = await Storage.addSnapshot({
+            projectId: projectId,
+            timestamp: index, // Use index as pseudo-timestamp
+            originalImage: imageDataUrl,
+            imageData: imageDataUrl, // Also store in imageData for compatibility
+            comment: imageName, // Use filename as initial comment
+            tags: [],
+            tagHours: {}
+        });
+
         return snapshotId;
     },
 
@@ -1386,15 +1410,26 @@ const SnapshotManager = {
             const currentIndex = sortedSnapshots.findIndex(s => s.id === this.currentSnapshotId);
             if (currentIndex !== -1 && currentIndex < sortedSnapshots.length - 1) {
                 nextSnapshot = sortedSnapshots[currentIndex + 1];
+                this.currentImageIndex = currentIndex + 1;
             }
         } else {
             // No snapshot selected, select the first one (earliest timestamp)
             nextSnapshot = sortedSnapshots[0];
+            this.currentImageIndex = 0;
         }
 
         if (nextSnapshot) {
-            // Seek to the snapshot's timestamp
-            VideoHandler.video.currentTime = nextSnapshot.timestamp;
+            // For image projects, display the image in the overlay
+            if (VideoHandler.isImageProject) {
+                const snapshotOverlay = document.getElementById('snapshotOverlay');
+                if (snapshotOverlay) {
+                    snapshotOverlay.src = nextSnapshot.originalImage || nextSnapshot.imageData;
+                }
+            } else {
+                // For video projects, seek to the snapshot's timestamp
+                VideoHandler.video.currentTime = nextSnapshot.timestamp;
+            }
+            
             // Enter edit mode for this snapshot
             await this.enterInlineEditMode(nextSnapshot.id);
         }
@@ -1416,15 +1451,26 @@ const SnapshotManager = {
             const currentIndex = sortedSnapshots.findIndex(s => s.id === this.currentSnapshotId);
             if (currentIndex > 0) {
                 prevSnapshot = sortedSnapshots[currentIndex - 1];
+                this.currentImageIndex = currentIndex - 1;
             }
         } else {
             // No snapshot selected, select the last one (latest timestamp)
             prevSnapshot = sortedSnapshots[sortedSnapshots.length - 1];
+            this.currentImageIndex = sortedSnapshots.length - 1;
         }
 
         if (prevSnapshot) {
-            // Seek to the snapshot's timestamp
-            VideoHandler.video.currentTime = prevSnapshot.timestamp;
+            // For image projects, display the image in the overlay
+            if (VideoHandler.isImageProject) {
+                const snapshotOverlay = document.getElementById('snapshotOverlay');
+                if (snapshotOverlay) {
+                    snapshotOverlay.src = prevSnapshot.originalImage || prevSnapshot.imageData;
+                }
+            } else {
+                // For video projects, seek to the snapshot's timestamp
+                VideoHandler.video.currentTime = prevSnapshot.timestamp;
+            }
+            
             // Enter edit mode for this snapshot
             await this.enterInlineEditMode(prevSnapshot.id);
         }
