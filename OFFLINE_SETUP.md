@@ -105,4 +105,4 @@ Once set up, the app works completely offline:
 
 ---
 
-**Made by Production Team - Hogarth Argentina**
+**Made by Hogarth Argentina**
