@@ -43,9 +43,14 @@ const VideoHandler = {
         uploadArea.addEventListener('click', () => videoInput.click());
 
         // File input change
-        videoInput.addEventListener('change', (e) => {
-            if (e.target.files[0]) {
-                this.loadVideo(e.target.files[0]);
+        videoInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                if (files.length === 1) {
+                    this.loadVideo(files[0]);
+                } else {
+                    await this.batchImportVideos(files);
+                }
             }
         });
 
@@ -59,13 +64,17 @@ const VideoHandler = {
             uploadArea.classList.remove('drag-over');
         });
 
-        uploadArea.addEventListener('drop', (e) => {
+        uploadArea.addEventListener('drop', async (e) => {
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
-            const file = e.dataTransfer.files[0];
-            if (file) {
-                // Accept any file - browser will determine if it can play it
-                this.loadVideo(file);
+            const files = Array.from(e.dataTransfer.files);
+            if (files.length > 0) {
+                if (files.length === 1) {
+                    // Accept any file - browser will determine if it can play it
+                    this.loadVideo(files[0]);
+                } else {
+                    await this.batchImportVideos(files);
+                }
             }
         });
 
@@ -269,6 +278,68 @@ const VideoHandler = {
         document.getElementById('exportProjectBtn').disabled = false;
 
         App.showToast(`Loaded: ${file.name}`, 'success');
+    },
+
+    /**
+     * Batch import multiple video files and create projects for each
+     * @param {File[]} files - Array of video files
+     */
+    async batchImportVideos(files) {
+        const videoFiles = files.filter(file => file.type.startsWith('video/'));
+        
+        if (videoFiles.length === 0) {
+            App.showToast('No video files detected', 'warning');
+            return;
+        }
+
+        App.showToast(`Importing ${videoFiles.length} video(s)...`, 'info');
+        
+        const createdProjects = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let i = 0; i < videoFiles.length; i++) {
+            const file = videoFiles[i];
+            
+            try {
+                // Show progress
+                App.showToast(`Processing ${i + 1}/${videoFiles.length}: ${file.name}`, 'info');
+                
+                // Read video data
+                const videoData = await file.arrayBuffer();
+                
+                // Create project in storage
+                const projectId = await Storage.createProject({
+                    name: file.name.replace(/\.[^/.]+$/, ''),
+                    videoFileName: file.name,
+                    videoData: new Blob([videoData], { type: file.type })
+                });
+                
+                createdProjects.push(projectId);
+                successCount++;
+                
+            } catch (error) {
+                console.error(`Error importing ${file.name}:`, error);
+                failCount++;
+            }
+        }
+
+        // Show final result
+        if (successCount > 0) {
+            App.showToast(`✓ Created ${successCount} project(s)${failCount > 0 ? ` (${failCount} failed)` : ''}`, 'success');
+            
+            // Refresh project list
+            if (window.ProjectManager) {
+                await ProjectManager.loadProjectList();
+            }
+            
+            // Load the first project automatically
+            if (createdProjects.length > 0) {
+                await this.loadProject(createdProjects[0]);
+            }
+        } else {
+            App.showToast('Failed to import videos', 'error');
+        }
     },
 
     /**
