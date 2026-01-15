@@ -156,6 +156,7 @@
     width: auto;
     height: auto;
     object-fit: contain;
+    background: transparent;
 }
 
 .snapshot-overlay {
