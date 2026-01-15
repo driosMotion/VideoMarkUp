@@ -445,13 +445,21 @@ const VideoHandler = {
             }
 
             // Load snapshots and display first image
-            await window.SnapshotManager.loadSnapshots(this.currentProjectId);
-            const snapshots = await window.SnapshotManager.getAllSnapshots();
+            const snapshots = await Storage.getSnapshots(this.currentProjectId);
+            SnapshotManager.snapshots = snapshots;
+            
+            // Add snapshots to list
+            snapshots.forEach(snapshot => {
+                SnapshotManager.addSnapshotToList(snapshot);
+            });
+            SnapshotManager.sortSnapshotsByTimecode();
+            SnapshotManager.updateSnapshotCount();
             
             if (snapshots.length > 0) {
                 // Display first image
-                snapshotOverlay.src = snapshots[0].imageData;
-                window.SnapshotManager.currentImageIndex = 0;
+                snapshotOverlay.src = snapshots[0].originalImage || snapshots[0].imageData;
+                SnapshotManager.currentImageIndex = 0;
+                document.getElementById('emptyState').hidden = true;
             }
 
             App.showToast(`✓ Created project with ${imageFiles.length} image(s)`, 'success');
