@@ -5,13 +5,32 @@
 
 const ProjectManager = {
     isOpen: false,
+    expandedFolders: new Set(), // Track which folders are expanded
 
     /**
      * Initialize project manager
      */
     init() {
+        this.loadExpandedState();
         this.setupEventListeners();
         this.loadProjectList();
+    },
+
+    /**
+     * Load expanded folder state from localStorage
+     */
+    loadExpandedState() {
+        const saved = localStorage.getItem('expandedFolders');
+        if (saved) {
+            this.expandedFolders = new Set(JSON.parse(saved));
+        }
+    },
+
+    /**
+     * Save expanded folder state to localStorage
+     */
+    saveExpandedState() {
+        localStorage.setItem('expandedFolders', JSON.stringify([...this.expandedFolders]));
     },
 
     /**
@@ -39,6 +58,14 @@ const ProjectManager = {
         newProjectBtn.addEventListener('click', () => {
             this.newProject();
         });
+
+        // New folder button
+        const newFolderBtn = document.getElementById('newFolderBtn');
+        if (newFolderBtn) {
+            newFolderBtn.addEventListener('click', () => {
+                this.createFolder();
+            });
+        }
 
         // Close on Escape
         document.addEventListener('keydown', (e) => {
@@ -136,22 +163,89 @@ const ProjectManager = {
     },
 
     /**
-     * Load and display project list
+     * Load and display project list with folder support
      */
     async loadProjectList() {
         const listEl = document.getElementById('projectList');
-        const projects = await Storage.getAllProjects();
+        const [folders, projects] = await Promise.all([
+            Storage.getAllFolders(),
+            Storage.getAllProjects()
+        ]);
 
-        if (projects.length === 0) {
+        if (folders.length === 0 && projects.length === 0) {
             listEl.innerHTML = '<div class="dropdown-empty">No saved projects</div>';
             return;
         }
 
-        // Sort by last edited date (most recent first)
-        projects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
+        let html = '';
 
-        listEl.innerHTML = projects.map(project => `
-            <div class="dropdown-item ${project.id === VideoHandler.currentProjectId ? 'dropdown-item-active' : ''}" data-id="${project.id}">
+        // Render folders
+        for (const folder of folders) {
+            const folderProjects = projects.filter(p => p.folderId === folder.id);
+            const isExpanded = this.expandedFolders.has(folder.id);
+            
+            html += `
+                <div class="folder-item ${isExpanded ? 'expanded' : ''}" data-folder-id="${folder.id}">
+                    <svg class="folder-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="9 18 15 12 9 6"></polyline>
+                    </svg>
+                    <svg class="folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                    <span class="folder-name">${this.escapeHtml(folder.name)}</span>
+                    <span class="folder-count">${folderProjects.length}</span>
+                    <div class="folder-actions">
+                        <button class="folder-action rename" data-folder-id="${folder.id}" title="Rename folder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </button>
+                        <button class="folder-action delete" data-folder-id="${folder.id}" title="Delete folder">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="folder-projects ${isExpanded ? '' : 'collapsed'}" data-folder-id="${folder.id}">
+            `;
+
+            // Render projects in this folder
+            folderProjects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
+            
+            for (const project of folderProjects) {
+                html += this.renderProjectItem(project, true);
+            }
+
+            html += '</div>';
+        }
+
+        // Render projects without folders (root level)
+        const rootProjects = projects.filter(p => !p.folderId);
+        rootProjects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
+        
+        for (const project of rootProjects) {
+            html += this.renderProjectItem(project, false);
+        }
+
+        listEl.innerHTML = html;
+
+        // Setup event handlers
+        this.setupProjectHandlers(listEl);
+        this.setupFolderHandlers(listEl);
+        this.setupDragDropHandlers(listEl);
+    },
+
+    /**
+     * Render a single project item
+     */
+    renderProjectItem(project, inFolder) {
+        return `
+            <div class="dropdown-item ${inFolder ? 'in-folder' : ''} ${project.id === VideoHandler.currentProjectId ? 'dropdown-item-active' : ''}" 
+                 data-id="${project.id}" 
+                 draggable="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="23 7 16 12 23 17 23 7"></polygon>
                     <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
@@ -161,7 +255,7 @@ const ProjectManager = {
                     <span class="dropdown-item-meta">Last edited: ${this.formatDate(project.lastEditedAt || project.createdAt)}</span>
                 </div>
                 <div class="dropdown-item-actions">
-                    <button class="dropdown-item-action dropdown-item-rename" data-id="${project.id}" data-name="${this.escapeHtml(project.name)}" title="Rename project">
+                    <button class="dropdown-item-action dropdown-item-rename" data-id="${project.id}" title="Rename project">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -175,99 +269,278 @@ const ProjectManager = {
                     </button>
                 </div>
             </div>
-        `).join('');
+        `;
+    },
 
-        // Add click handlers
+    /**
+     * Setup project click and action handlers
+     */
+    setupProjectHandlers(listEl) {
+        // Project click handlers
         listEl.querySelectorAll('.dropdown-item').forEach(item => {
             item.addEventListener('click', (e) => {
-                // Don't switch if clicking action buttons
                 if (e.target.closest('.dropdown-item-rename') || e.target.closest('.dropdown-item-delete')) return;
-
                 const projectId = parseInt(item.dataset.id);
                 this.switchProject(projectId);
             });
         });
 
-        // Rename button handlers
+        // Rename handlers
         listEl.querySelectorAll('.dropdown-item-rename').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const projectId = parseInt(btn.dataset.id);
-                await this.renameProject(projectId);
+                await this.renameProject(parseInt(btn.dataset.id));
             });
         });
 
-        // Delete button handlers with hold-to-delete
+        // Delete handlers with hold-to-delete
         listEl.querySelectorAll('.dropdown-item-delete').forEach(btn => {
-            let deleteHoldTimer = null;
-            let deleteProgress = null;
-            
-            // Mouse down - start delete timer
-            btn.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                
-                const projectId = parseInt(btn.dataset.id);
-                btn.classList.add('deleting');
-                
-                // Create progress overlay
-                deleteProgress = document.createElement('div');
-                deleteProgress.className = 'delete-progress';
-                btn.insertBefore(deleteProgress, btn.firstChild);
-                
-                // Start animation
-                deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
-                
-                // Set timer for actual deletion
-                deleteHoldTimer = setTimeout(async () => {
-                    btn.classList.remove('deleting');
-                    if (deleteProgress && deleteProgress.parentNode) {
-                        deleteProgress.remove();
-                    }
-                    await this.deleteProject(projectId);
-                }, 1000);
+            this.setupHoldToDelete(btn, () => this.deleteProject(parseInt(btn.dataset.id)));
+        });
+    },
+
+    /**
+     * Setup folder handlers (expand/collapse, rename, delete)
+     */
+    setupFolderHandlers(listEl) {
+        // Folder expand/collapse
+        listEl.querySelectorAll('.folder-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (e.target.closest('.folder-action')) return;
+                const folderId = parseInt(item.dataset.folderId);
+                this.toggleFolder(folderId);
             });
-            
-            // Cancel on release or leave
-            const cancelDelete = () => {
-                btn.classList.remove('deleting');
-                if (deleteHoldTimer) {
-                    clearTimeout(deleteHoldTimer);
-                    deleteHoldTimer = null;
+        });
+
+        // Folder rename
+        listEl.querySelectorAll('.folder-action.rename').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.renameFolder(parseInt(btn.dataset.folderId));
+            });
+        });
+
+        // Folder delete
+        listEl.querySelectorAll('.folder-action.delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                await this.deleteFolder(parseInt(btn.dataset.folderId));
+            });
+        });
+    },
+
+    /**
+     * Setup drag and drop handlers for projects
+     */
+    setupDragDropHandlers(listEl) {
+        let draggedProjectId = null;
+
+        // Drag start
+        listEl.querySelectorAll('.dropdown-item[draggable="true"]').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                draggedProjectId = parseInt(item.dataset.id);
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                draggedProjectId = null;
+                // Remove all drop-target classes
+                listEl.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+            });
+        });
+
+        // Drag over folders
+        listEl.querySelectorAll('.folder-item').forEach(folder => {
+            folder.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                folder.classList.add('drop-target');
+            });
+
+            folder.addEventListener('dragleave', () => {
+                folder.classList.remove('drop-target');
+            });
+
+            folder.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                folder.classList.remove('drop-target');
+                
+                if (draggedProjectId) {
+                    const folderId = parseInt(folder.dataset.folderId);
+                    await Storage.updateProjectFolder(draggedProjectId, folderId);
+                    await this.loadProjectList();
+                    App.showToast('Project moved to folder', 'success');
                 }
+            });
+        });
+
+        // Drag over root area (project list) to move out of folder
+        const dropZone = listEl;
+        dropZone.addEventListener('dragover', (e) => {
+            // Only allow drop if not over a folder
+            if (!e.target.closest('.folder-item')) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            }
+        });
+
+        dropZone.addEventListener('drop', async (e) => {
+            if (!e.target.closest('.folder-item') && draggedProjectId) {
+                e.preventDefault();
+                await Storage.updateProjectFolder(draggedProjectId, null);
+                await this.loadProjectList();
+                App.showToast('Project moved to root', 'success');
+            }
+        });
+    },
+
+    /**
+     * Setup hold-to-delete functionality
+     */
+    setupHoldToDelete(btn, deleteCallback) {
+        let deleteHoldTimer = null;
+        let deleteProgress = null;
+
+        const startDelete = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            btn.classList.add('deleting');
+            deleteProgress = document.createElement('div');
+            deleteProgress.className = 'delete-progress';
+            btn.insertBefore(deleteProgress, btn.firstChild);
+            deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
+            
+            deleteHoldTimer = setTimeout(async () => {
+                btn.classList.remove('deleting');
                 if (deleteProgress && deleteProgress.parentNode) {
                     deleteProgress.remove();
                 }
-            };
+                await deleteCallback();
+            }, 1000);
+        };
+
+        const cancelDelete = () => {
+            btn.classList.remove('deleting');
+            if (deleteHoldTimer) {
+                clearTimeout(deleteHoldTimer);
+                deleteHoldTimer = null;
+            }
+            if (deleteProgress && deleteProgress.parentNode) {
+                deleteProgress.remove();
+            }
+        };
+
+        btn.addEventListener('mousedown', startDelete);
+        btn.addEventListener('mouseup', cancelDelete);
+        btn.addEventListener('mouseleave', cancelDelete);
+        btn.addEventListener('touchstart', startDelete);
+        btn.addEventListener('touchend', cancelDelete);
+        btn.addEventListener('touchcancel', cancelDelete);
+    },
+
+    /**
+     * Toggle folder expand/collapse
+     */
+    toggleFolder(folderId) {
+        if (this.expandedFolders.has(folderId)) {
+            this.expandedFolders.delete(folderId);
+        } else {
+            this.expandedFolders.add(folderId);
+        }
+        this.saveExpandedState();
+        this.loadProjectList();
+    },
+
+    /**
+     * Create a new folder
+     */
+    async createFolder() {
+        const name = prompt('Enter folder name:');
+        if (!name || !name.trim()) return;
+
+        try {
+            await Storage.createFolder(name.trim());
+            await this.loadProjectList();
+            App.showToast('Folder created', 'success');
+        } catch (error) {
+            console.error('Error creating folder:', error);
+            App.showToast('Error creating folder', 'error');
+        }
+    },
+
+    /**
+     * Rename a folder
+     */
+    async renameFolder(folderId) {
+        const folder = await Storage.getFolder(folderId);
+        if (!folder) return;
+
+        const newName = prompt('Rename folder:', folder.name);
+        if (!newName || !newName.trim() || newName === folder.name) return;
+
+        try {
+            await Storage.updateFolder(folderId, { name: newName.trim() });
+            await this.loadProjectList();
+            App.showToast('Folder renamed', 'success');
+        } catch (error) {
+            console.error('Error renaming folder:', error);
+            App.showToast('Error renaming folder', 'error');
+        }
+    },
+
+    /**
+     * Delete a folder
+     */
+    async deleteFolder(folderId) {
+        const folder = await Storage.getFolder(folderId);
+        const projects = await Storage.getProjectsByFolder(folderId);
+        
+        if (projects.length === 0) {
+            // Empty folder, just delete
+            if (confirm(`Delete folder "${folder.name}"?`)) {
+                await Storage.deleteFolder(folderId);
+                this.expandedFolders.delete(folderId);
+                this.saveExpandedState();
+                await this.loadProjectList();
+                App.showToast('Folder deleted', 'success');
+            }
+            return;
+        }
+
+        // Folder has projects, ask user what to do
+        const choice = confirm(
+            `Folder "${folder.name}" contains ${projects.length} project(s).\n\n` +
+            `OK = Move projects to root level\n` +
+            `Cancel = Delete folder AND all projects inside`
+        );
+
+        if (choice) {
+            // Move to root
+            await Storage.moveProjectsToRoot(folderId);
+            await Storage.deleteFolder(folderId);
+            this.expandedFolders.delete(folderId);
+            this.saveExpandedState();
+            await this.loadProjectList();
+            App.showToast(`Folder deleted, ${projects.length} project(s) moved to root`, 'success');
+        } else {
+            // Confirm deletion of all
+            const confirmDelete = confirm(
+                `Are you SURE you want to delete the folder AND all ${projects.length} project(s) inside?\n\n` +
+                `This action cannot be undone!`
+            );
             
-            btn.addEventListener('mouseup', cancelDelete);
-            btn.addEventListener('mouseleave', cancelDelete);
-            
-            // Touch support
-            btn.addEventListener('touchstart', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                
-                const projectId = parseInt(btn.dataset.id);
-                btn.classList.add('deleting');
-                
-                deleteProgress = document.createElement('div');
-                deleteProgress.className = 'delete-progress';
-                btn.insertBefore(deleteProgress, btn.firstChild);
-                deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
-                
-                deleteHoldTimer = setTimeout(async () => {
-                    btn.classList.remove('deleting');
-                    if (deleteProgress && deleteProgress.parentNode) {
-                        deleteProgress.remove();
-                    }
-                    await this.deleteProject(projectId);
-                }, 1000);
-            });
-            
-            btn.addEventListener('touchend', cancelDelete);
-            btn.addEventListener('touchcancel', cancelDelete);
-        });
+            if (confirmDelete) {
+                await Storage.deleteProjectsInFolder(folderId);
+                await Storage.deleteFolder(folderId);
+                this.expandedFolders.delete(folderId);
+                this.saveExpandedState();
+                await this.loadProjectList();
+                App.showToast('Folder and all projects deleted', 'success');
+            }
+        }
     },
 
     /**

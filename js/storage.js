@@ -44,6 +44,24 @@ db.version(2).stores({
     console.log(`Migrated ${projects.length} projects to version 2`);
 });
 
+// Version 3: Add folders table and folderId to projects
+db.version(3).stores({
+    projects: '++id, name, createdAt, lastEditedAt, folderId',
+    snapshots: '++id, projectId, timestamp, createdAt',
+    folders: '++id, name, createdAt'
+}).upgrade(async tx => {
+    // Migrate existing projects to have folderId (null = no folder)
+    const projects = await tx.table('projects').toArray();
+    for (const project of projects) {
+        if (project.folderId === undefined) {
+            await tx.table('projects').update(project.id, {
+                folderId: null
+            });
+        }
+    }
+    console.log(`Migrated ${projects.length} projects to version 3 with folder support`);
+});
+
 /**
  * Storage API
  */
@@ -246,6 +264,118 @@ const Storage = {
     async clearAll() {
         await db.projects.clear();
         await db.snapshots.clear();
+        await db.folders.clear();
+    },
+
+    // ========================================
+    // Folder Management Methods
+    // ========================================
+
+    /**
+     * Create a new folder
+     * @param {string} name - Folder name
+     * @param {string} color - Optional folder color
+     * @returns {Promise<number>} Folder ID
+     */
+    async createFolder(name, color = null) {
+        return await db.folders.add({
+            name: name,
+            color: color,
+            createdAt: new Date()
+        });
+    },
+
+    /**
+     * Get a folder by ID
+     * @param {number} id - Folder ID
+     * @returns {Promise<Object>} Folder data
+     */
+    async getFolder(id) {
+        return await db.folders.get(id);
+    },
+
+    /**
+     * Get all folders
+     * @returns {Promise<Array>} Array of folders
+     */
+    async getAllFolders() {
+        return await db.folders.orderBy('name').toArray();
+    },
+
+    /**
+     * Update a folder
+     * @param {number} id - Folder ID
+     * @param {Object} updates - Fields to update
+     */
+    async updateFolder(id, updates) {
+        await db.folders.update(id, updates);
+    },
+
+    /**
+     * Delete a folder
+     * @param {number} id - Folder ID
+     */
+    async deleteFolder(id) {
+        await db.folders.delete(id);
+    },
+
+    /**
+     * Update a project's folder
+     * @param {number} projectId - Project ID
+     * @param {number|null} folderId - Folder ID (null = no folder)
+     */
+    async updateProjectFolder(projectId, folderId) {
+        await db.projects.update(projectId, {
+            folderId: folderId,
+            lastEditedAt: new Date()
+        });
+    },
+
+    /**
+     * Get all projects in a folder
+     * @param {number} folderId - Folder ID
+     * @returns {Promise<Array>} Array of projects
+     */
+    async getProjectsByFolder(folderId) {
+        return await db.projects
+            .where('folderId')
+            .equals(folderId)
+            .sortBy('lastEditedAt');
+    },
+
+    /**
+     * Get projects without a folder (root level)
+     * @returns {Promise<Array>} Array of projects
+     */
+    async getProjectsWithoutFolder() {
+        return await db.projects
+            .where('folderId')
+            .equals(null)
+            .or('folderId')
+            .equals(undefined)
+            .sortBy('lastEditedAt');
+    },
+
+    /**
+     * Move all projects from a folder to root level
+     * @param {number} folderId - Folder ID
+     */
+    async moveProjectsToRoot(folderId) {
+        const projects = await this.getProjectsByFolder(folderId);
+        for (const project of projects) {
+            await this.updateProjectFolder(project.id, null);
+        }
+    },
+
+    /**
+     * Delete all projects in a folder
+     * @param {number} folderId - Folder ID
+     */
+    async deleteProjectsInFolder(folderId) {
+        const projects = await this.getProjectsByFolder(folderId);
+        for (const project of projects) {
+            await this.deleteProject(project.id);
+        }
     },
 
     /**
