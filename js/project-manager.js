@@ -183,11 +183,16 @@ const ProjectManager = {
      * Load and display project list with folder support
      */
     async loadProjectList() {
+        console.log('🔄 LOADING PROJECT LIST...');
         const listEl = document.getElementById('projectList');
         const [folders, projects] = await Promise.all([
             Storage.getAllFolders(),
             Storage.getAllProjects()
         ]);
+
+        console.log('📊 DATA LOADED:');
+        console.log('  Folders:', folders.map(f => ({ id: f.id, name: f.name })));
+        console.log('  Projects:', projects.map(p => ({ id: p.id, name: p.name, folderId: p.folderId })));
 
         if (folders.length === 0 && projects.length === 0) {
             listEl.innerHTML = '<div class="dropdown-empty">No saved projects</div>';
@@ -198,8 +203,21 @@ const ProjectManager = {
 
         // Render folders
         for (const folder of folders) {
-            const folderProjects = projects.filter(p => p.folderId === folder.id);
+            const folderProjects = projects.filter(p => {
+                // Convert both to numbers for comparison
+                const projectFolderId = p.folderId ? Number(p.folderId) : null;
+                const folderId = Number(folder.id);
+                const matches = projectFolderId === folderId;
+                
+                if (matches) {
+                    console.log(`  ✓ Project "${p.name}" (folderId=${p.folderId}) matches folder "${folder.name}" (id=${folder.id})`);
+                }
+                
+                return matches;
+            });
             const isExpanded = this.expandedFolders.has(folder.id);
+            
+            console.log(`📁 Folder "${folder.name}" (id=${folder.id}): ${folderProjects.length} projects, ${isExpanded ? 'EXPANDED' : 'COLLAPSED'}`);
             
             html += `
                 <div class="folder-item ${isExpanded ? 'expanded' : ''}" data-folder-id="${folder.id}">
@@ -233,6 +251,7 @@ const ProjectManager = {
             folderProjects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
             
             for (const project of folderProjects) {
+                console.log(`    Adding project "${project.name}" to folder HTML (indented)`);
                 html += this.renderProjectItem(project, true);
             }
 
@@ -240,15 +259,23 @@ const ProjectManager = {
         }
 
         // Render projects without folders (root level)
-        const rootProjects = projects.filter(p => !p.folderId || p.folderId === null || p.folderId === undefined);
-        console.log('Root projects:', rootProjects.length, 'Total projects:', projects.length);
+        const rootProjects = projects.filter(p => {
+            const hasNoFolder = !p.folderId || p.folderId === null || p.folderId === undefined;
+            if (hasNoFolder) {
+                console.log(`  🌳 Root project: "${p.name}" (folderId=${p.folderId})`);
+            }
+            return hasNoFolder;
+        });
+        console.log(`📂 Root projects: ${rootProjects.length} / Total: ${projects.length}`);
         rootProjects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
         
         for (const project of rootProjects) {
             html += this.renderProjectItem(project, false);
         }
 
+        console.log('📝 Setting innerHTML...');
         listEl.innerHTML = html;
+        console.log('✅ PROJECT LIST RENDERED');
 
         // Setup event handlers
         this.setupProjectHandlers(listEl);
