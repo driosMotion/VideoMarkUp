@@ -486,9 +486,10 @@ const VideoHandler = {
 
     /**
      * Hide playback controls for image-only projects
+     * Keep only: Grid, Safezone, Exposure, and Marker navigation
      */
     hidePlaybackControls() {
-        // Hide play/pause and frame navigation
+        // Hide video playback controls
         const controlsToHide = [
             'playPauseBtn',
             'prevFrameBtn',
@@ -497,8 +498,6 @@ const VideoHandler = {
             'speedBtn',
             'muteBtn',
             'volumeSlider',
-            'exposureSlider',
-            'exposureResetBtn',
             'channelBtn',
             'currentTime',
             'duration'
@@ -521,11 +520,24 @@ const VideoHandler = {
             progressContainer.style.display = 'none';
         }
 
-        // Hide control dividers near hidden buttons
-        const controlDividers = document.querySelectorAll('.controls-divider');
-        controlDividers.forEach((div, index) => {
-            if (index < 4) div.style.display = 'none';
-        });
+        // Keep visible: prevMarkerBtn, nextMarkerBtn, safezoneBtn, gridBtn, exposureSlider, exposureResetBtn
+        // Hide only the first 3 dividers (before marker navigation)
+        const controlsLeft = document.querySelector('.controls-left');
+        if (controlsLeft) {
+            const dividers = controlsLeft.querySelectorAll('.controls-divider');
+            // Hide first 3 dividers (play controls, loop, channel/speed section)
+            if (dividers[0]) dividers[0].style.display = 'none'; // after frame buttons
+            if (dividers[1]) dividers[1].style.display = 'none'; // after marker buttons - keep this visible
+            if (dividers[2]) dividers[2].style.display = 'none'; // after loop
+            
+            // Actually, let's be more specific - hide dividers around hidden controls
+            Array.from(dividers).forEach((div, index) => {
+                // Keep dividers around marker nav (index 1), safezone/grid (2-3), exposure (4)
+                if (index === 0 || index === 2 || index === 5) {
+                    div.style.display = 'none';
+                }
+            });
+        }
     },
 
     /**
@@ -562,6 +574,7 @@ const VideoHandler = {
             progressContainer.style.display = '';
         }
 
+        // Restore all control dividers
         const controlDividers = document.querySelectorAll('.controls-divider');
         controlDividers.forEach(div => {
             div.style.display = '';

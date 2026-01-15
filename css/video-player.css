@@ -1103,3 +1103,22 @@ canvas {
     }
 }
 
+/* ===========================================
+   Image Project Controls Layout
+   =========================================== */
+
+/* Ensure remaining controls in image projects are properly spaced */
+.controls-left {
+    flex-wrap: wrap;
+}
+
+/* Adjust exposure control styling for better visibility in image mode */
+.exposure-control {
+    min-width: 180px;
+}
+
+/* Make sure safezone and grid buttons are easily accessible */
+.safezone-dropdown,
+#gridBtn {
+    position: relative;
+}
