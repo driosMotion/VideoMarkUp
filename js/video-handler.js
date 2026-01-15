@@ -300,6 +300,13 @@ const VideoHandler = {
             window.DrawingTool.canvas.clear();
         }
         
+        // Clear snapshot overlay image
+        const snapshotOverlay = document.getElementById('snapshotOverlay');
+        if (snapshotOverlay) {
+            snapshotOverlay.hidden = true;
+            snapshotOverlay.src = '';
+        }
+        
         // Create URL from stored blob
         const url = URL.createObjectURL(project.videoData);
         this.video.src = url;
