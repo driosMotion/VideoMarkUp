@@ -3,3 +3,6 @@ README.md
 
 # System files
 .DS_Store
+# Standalone builds (can be regenerated)
+VideoMarkupStandalone.html
+VideoMarkupStandalone-Obfuscated.html
