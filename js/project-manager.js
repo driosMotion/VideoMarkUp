@@ -6,6 +6,7 @@
 const ProjectManager = {
     isOpen: false,
     expandedFolders: new Set(), // Track which folders are expanded
+    draggedProjectId: null, // Track currently dragged project
 
     /**
      * Initialize project manager
@@ -323,6 +324,7 @@ const ProjectManager = {
         // Folder expand/collapse
         listEl.querySelectorAll('.folder-item').forEach(item => {
             item.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent dropdown from closing
                 if (e.target.closest('.folder-action')) return;
                 const folderId = parseInt(item.dataset.folderId);
                 this.toggleFolder(folderId);
@@ -350,21 +352,23 @@ const ProjectManager = {
      * Setup drag and drop handlers for projects
      */
     setupDragDropHandlers(listEl) {
-        let draggedProjectId = null;
-
         // Drag start
         listEl.querySelectorAll('.dropdown-item[draggable="true"]').forEach(item => {
             item.addEventListener('dragstart', (e) => {
-                draggedProjectId = parseInt(item.dataset.id);
+                this.draggedProjectId = parseInt(item.dataset.id);
                 item.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
+                console.log('Drag started:', this.draggedProjectId);
             });
 
             item.addEventListener('dragend', () => {
                 item.classList.remove('dragging');
-                draggedProjectId = null;
+                console.log('Drag ended');
+                // Don't reset draggedProjectId here, let drop handler clear it
                 // Remove all drop-target classes
-                listEl.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+                setTimeout(() => {
+                    listEl.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+                }, 100);
             });
         });
 
@@ -382,15 +386,19 @@ const ProjectManager = {
 
             folder.addEventListener('drop', async (e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 folder.classList.remove('drop-target');
                 
-                if (draggedProjectId) {
+                if (this.draggedProjectId) {
                     const folderId = parseInt(folder.dataset.folderId);
-                    console.log('Moving project', draggedProjectId, 'to folder', folderId);
-                    await Storage.updateProjectFolder(draggedProjectId, folderId);
+                    console.log('DROP: Moving project', this.draggedProjectId, 'to folder', folderId);
+                    await Storage.updateProjectFolder(this.draggedProjectId, folderId);
+                    this.draggedProjectId = null; // Clear after successful move
                     console.log('Project moved, reloading list');
                     await this.loadProjectList();
                     App.showToast('Project moved to folder', 'success');
+                } else {
+                    console.log('DROP: No draggedProjectId');
                 }
             });
         });
@@ -406,10 +414,12 @@ const ProjectManager = {
         });
 
         dropZone.addEventListener('drop', async (e) => {
-            if (!e.target.closest('.folder-item') && draggedProjectId) {
+            if (!e.target.closest('.folder-item') && this.draggedProjectId) {
                 e.preventDefault();
-                console.log('Moving project', draggedProjectId, 'to root');
-                await Storage.updateProjectFolder(draggedProjectId, null);
+                e.stopPropagation();
+                console.log('DROP: Moving project', this.draggedProjectId, 'to root');
+                await Storage.updateProjectFolder(this.draggedProjectId, null);
+                this.draggedProjectId = null; // Clear after successful move
                 console.log('Project moved to root, reloading list');
                 await this.loadProjectList();
                 App.showToast('Project moved to root', 'success');
