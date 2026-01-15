@@ -74,12 +74,28 @@ const ProjectManager = {
             }
         });
         
-        // Close on scroll
-        window.addEventListener('scroll', () => {
+        // Close on scroll (but not when scrolling inside the dropdown)
+        window.addEventListener('scroll', (e) => {
             if (this.isOpen) {
-                this.closeDropdown();
+                // Don't close if scrolling inside the dropdown list
+                const listEl = document.getElementById('projectList');
+                if (!listEl || !listEl.contains(e.target)) {
+                    this.closeDropdown();
+                }
             }
         }, true);
+        
+        // Prevent dropdown from closing when scrolling inside project list
+        const projectList = document.getElementById('projectList');
+        if (projectList) {
+            projectList.addEventListener('wheel', (e) => {
+                e.stopPropagation();
+            }, { passive: false });
+            
+            projectList.addEventListener('scroll', (e) => {
+                e.stopPropagation();
+            }, true);
+        }
         
         // Reposition on window resize
         window.addEventListener('resize', () => {
@@ -223,7 +239,8 @@ const ProjectManager = {
         }
 
         // Render projects without folders (root level)
-        const rootProjects = projects.filter(p => !p.folderId);
+        const rootProjects = projects.filter(p => !p.folderId || p.folderId === null || p.folderId === undefined);
+        console.log('Root projects:', rootProjects.length, 'Total projects:', projects.length);
         rootProjects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
         
         for (const project of rootProjects) {
@@ -369,7 +386,9 @@ const ProjectManager = {
                 
                 if (draggedProjectId) {
                     const folderId = parseInt(folder.dataset.folderId);
+                    console.log('Moving project', draggedProjectId, 'to folder', folderId);
                     await Storage.updateProjectFolder(draggedProjectId, folderId);
+                    console.log('Project moved, reloading list');
                     await this.loadProjectList();
                     App.showToast('Project moved to folder', 'success');
                 }
@@ -389,7 +408,9 @@ const ProjectManager = {
         dropZone.addEventListener('drop', async (e) => {
             if (!e.target.closest('.folder-item') && draggedProjectId) {
                 e.preventDefault();
+                console.log('Moving project', draggedProjectId, 'to root');
                 await Storage.updateProjectFolder(draggedProjectId, null);
+                console.log('Project moved to root, reloading list');
                 await this.loadProjectList();
                 App.showToast('Project moved to root', 'success');
             }
