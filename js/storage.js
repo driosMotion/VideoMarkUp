@@ -114,7 +114,9 @@ const Storage = {
             name: p.name,
             videoFileName: p.videoFileName,
             createdAt: p.createdAt,
-            lastEditedAt: p.lastEditedAt
+            lastEditedAt: p.lastEditedAt,
+            folderId: p.folderId, // CRITICAL: Include folderId for folder organization!
+            isImageProject: p.isImageProject // Also include this flag
         }));
     },
 
