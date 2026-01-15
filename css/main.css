@@ -491,16 +491,20 @@ body > .project-dropdown-menu {
 
 /* Projects inside folders */
 .dropdown-item.in-folder {
-    padding-left: calc(var(--spacing-md) + 32px);
+    padding-left: calc(var(--spacing-xl) + var(--spacing-lg) + 24px); /* More visible indent */
+    background: rgba(255, 255, 255, 0.02); /* Subtle background to show nesting */
+    border-left: 2px solid var(--border-color); /* Visual indicator of nesting */
+    margin-left: var(--spacing-md);
 }
 
+/* Folder content container */
 .folder-projects {
-    overflow: hidden;
-    transition: max-height 0.3s ease;
+    display: block;
+    overflow: visible;
 }
 
 .folder-projects.collapsed {
-    max-height: 0;
+    display: none; /* Simple and reliable - just hide it */
 }
 
 /* Drag and drop states */
