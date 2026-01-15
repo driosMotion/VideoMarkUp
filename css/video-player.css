@@ -125,7 +125,15 @@
 
 .video-wrapper {
     flex: 1;
-    background: transparent;
+    background: 
+        repeating-linear-gradient(
+            45deg,
+            rgba(255, 255, 255, 0.015),
+            rgba(255, 255, 255, 0.015) 10px,
+            rgba(255, 255, 255, 0.03) 10px,
+            rgba(255, 255, 255, 0.03) 20px
+        );
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     overflow: hidden;
     display: flex;
