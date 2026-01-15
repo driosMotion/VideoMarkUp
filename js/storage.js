@@ -11,22 +11,6 @@ db.version(1).stores({
     snapshots: '++id, projectId, timestamp, createdAt'
 });
 
-// Version 2: Add lastEditedAt index for efficient querying
-db.version(2).stores({
-    projects: '++id, name, createdAt, lastEditedAt',
-    snapshots: '++id, projectId, timestamp, createdAt'
-}).upgrade(async tx => {
-    // Add lastEditedAt to existing projects
-    const projects = await tx.table('projects').toArray();
-    for (const project of projects) {
-        if (!project.lastEditedAt) {
-            await tx.table('projects').update(project.id, {
-                lastEditedAt: project.createdAt || new Date()
-            });
-        }
-    }
-});
-
 // Version 2: Add lastEditedAt index for sorting projects
 db.version(2).stores({
     projects: '++id, name, createdAt, lastEditedAt',
@@ -60,6 +44,34 @@ db.version(3).stores({
         }
     }
     console.log(`Migrated ${projects.length} projects to version 3 with folder support`);
+});
+
+// Version 4: Force migration for existing users (same schema as v3, just to trigger upgrade)
+db.version(4).stores({
+    projects: '++id, name, createdAt, lastEditedAt, folderId',
+    snapshots: '++id, projectId, timestamp, createdAt',
+    folders: '++id, name, createdAt'
+}).upgrade(async tx => {
+    // Ensure all projects have folderId field set to null if undefined
+    const projects = await tx.table('projects').toArray();
+    let migratedCount = 0;
+    for (const project of projects) {
+        if (project.folderId === undefined) {
+            await tx.table('projects').update(project.id, { folderId: null });
+            migratedCount++;
+        }
+    }
+    console.log(`Version 4 migration: Fixed ${migratedCount} projects without folderId field`);
+});
+
+// Log database version on open
+db.on('ready', () => {
+    console.log(`Database opened at version ${db.verno}`);
+    return db.projects.toArray().then(projects => {
+        if (projects.length > 0) {
+            console.log('Sample project structure:', projects[0]);
+        }
+    });
 });
 
 /**
@@ -325,10 +337,17 @@ const Storage = {
      * @param {number|null} folderId - Folder ID (null = no folder)
      */
     async updateProjectFolder(projectId, folderId) {
-        await db.projects.update(projectId, {
+        console.log('Storage.updateProjectFolder called:', { projectId, folderId });
+        const result = await db.projects.update(projectId, {
             folderId: folderId,
             lastEditedAt: new Date()
         });
+        console.log('Update result:', result);
+        
+        // Verify the update
+        const project = await db.projects.get(projectId);
+        console.log('Project after update:', project);
+        return result;
     },
 
     /**
