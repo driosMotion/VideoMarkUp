@@ -1091,40 +1091,51 @@ const VideoHandler = {
         const guide = document.createElement('div');
         guide.className = 'safezone-guide';
 
-        // Calculate dimensions based on video
-        const video = this.video;
-        const videoAspect = video.videoWidth / video.videoHeight;
-        const videoRect = video.getBoundingClientRect();
+        // For image projects, use snapshot overlay; for video projects, use video element
+        let contentAspect, contentRect;
+        
+        if (this.isImageProject) {
+            const snapshotOverlay = document.getElementById('snapshotOverlay');
+            contentRect = snapshotOverlay.getBoundingClientRect();
+            // For images, use natural dimensions if available
+            contentAspect = snapshotOverlay.naturalWidth && snapshotOverlay.naturalHeight
+                ? snapshotOverlay.naturalWidth / snapshotOverlay.naturalHeight
+                : contentRect.width / contentRect.height;
+        } else {
+            const video = this.video;
+            contentAspect = video.videoWidth / video.videoHeight;
+            contentRect = video.getBoundingClientRect();
+        }
 
         let guideWidth, guideHeight;
 
         switch (ratio) {
             case '9:16': // Story/Vertical
                 const targetAspect916 = 9 / 16;
-                if (videoAspect > targetAspect916) {
-                    // Video is wider, constrain by height
-                    guideHeight = videoRect.height;
+                if (contentAspect > targetAspect916) {
+                    // Content is wider, constrain by height
+                    guideHeight = contentRect.height;
                     guideWidth = guideHeight * targetAspect916;
                 } else {
-                    // Video is taller, constrain by width
-                    guideWidth = videoRect.width;
+                    // Content is taller, constrain by width
+                    guideWidth = contentRect.width;
                     guideHeight = guideWidth / targetAspect916;
                 }
                 break;
 
             case '1:1': // Square
-                const size = Math.min(videoRect.width, videoRect.height);
+                const size = Math.min(contentRect.width, contentRect.height);
                 guideWidth = size;
                 guideHeight = size;
                 break;
 
             case '4:5': // Feed
                 const targetAspect45 = 4 / 5;
-                if (videoAspect > targetAspect45) {
-                    guideHeight = videoRect.height;
+                if (contentAspect > targetAspect45) {
+                    guideHeight = contentRect.height;
                     guideWidth = guideHeight * targetAspect45;
                 } else {
-                    guideWidth = videoRect.width;
+                    guideWidth = contentRect.width;
                     guideHeight = guideWidth / targetAspect45;
                 }
                 break;
@@ -1229,14 +1240,19 @@ const VideoHandler = {
             const grid = document.createElement('div');
             grid.className = 'grid-overlay';
             
-            // Size grid to match video, not wrapper
-            const videoRect = this.video.getBoundingClientRect();
+            // For image projects, use snapshot overlay; for video projects, use video element
+            const targetElement = this.isImageProject 
+                ? document.getElementById('snapshotOverlay')
+                : this.video;
+            
+            // Size grid to match the active element (video or image)
+            const targetRect = targetElement.getBoundingClientRect();
             const wrapperRect = videoWrapper.getBoundingClientRect();
             
-            grid.style.width = `${videoRect.width}px`;
-            grid.style.height = `${videoRect.height}px`;
-            grid.style.left = `${videoRect.left - wrapperRect.left}px`;
-            grid.style.top = `${videoRect.top - wrapperRect.top}px`;
+            grid.style.width = `${targetRect.width}px`;
+            grid.style.height = `${targetRect.height}px`;
+            grid.style.left = `${targetRect.left - wrapperRect.left}px`;
+            grid.style.top = `${targetRect.top - wrapperRect.top}px`;
             
             videoWrapper.appendChild(grid);
             
