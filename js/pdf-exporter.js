@@ -474,12 +474,15 @@ const PDFExporter = {
         const allTags = TagManager.getAllTags();
         
         allTags.forEach(tag => {
-            totals[tag] = { shots: 0, hours: 0 };
+            totals[tag.name] = { shots: 0, hours: 0 };
         });
 
         snapshots.forEach(snapshot => {
             const hours = snapshot.tagHours || {};
             (snapshot.tags || []).forEach(tag => {
+                if (!totals[tag]) {
+                    totals[tag] = { shots: 0, hours: 0 };
+                }
                 totals[tag].shots++;
                 totals[tag].hours += (hours[tag] || 0);
             });
