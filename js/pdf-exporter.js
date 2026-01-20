@@ -515,8 +515,9 @@ const PDFExporter = {
         let totalHours = 0;
 
         allTags.forEach(tag => {
-            if (totals[tag].shots > 0 || totals[tag].hours > 0) {
-                const color = this.hexToRgb(TagManager.getTagColor(tag));
+            const tagName = tag.name;
+            if (totals[tagName].shots > 0 || totals[tagName].hours > 0) {
+                const color = this.hexToRgb(TagManager.getTagColor(tagName));
                 
                 // Row background (alternating)
                 doc.setFillColor(25, 25, 28);
@@ -530,24 +531,24 @@ const PDFExporter = {
                 
                 // Department name
                 doc.setTextColor(240, 240, 242);
-                doc.text(TagManager.getTagLabel(tag), x, y);
+                doc.text(TagManager.getTagLabel(tagName), x, y);
                 x += colWidths[0] - 3;
 
                 // Shots count
                 doc.setTextColor(160, 160, 168);
-                doc.text(totals[tag].shots.toString(), x, y);
+                doc.text(totals[tagName].shots.toString(), x, y);
                 x += colWidths[1];
 
                 // Hours
-                doc.text(totals[tag].hours.toFixed(1) + 'h', x, y);
+                doc.text(totals[tagName].hours.toFixed(1) + 'h', x, y);
                 x += colWidths[2];
 
                 // Days (assuming 8h workday)
-                const days = (totals[tag].hours / 8).toFixed(1);
+                const days = (totals[tagName].hours / 8).toFixed(1);
                 doc.text(days + ' days', x, y);
 
-                totalShots += totals[tag].shots;
-                totalHours += totals[tag].hours;
+                totalShots += totals[tagName].shots;
+                totalHours += totals[tagName].hours;
 
                 y += 10;
             }
