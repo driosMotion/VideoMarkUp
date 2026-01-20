@@ -514,9 +514,9 @@ const PDFExporter = {
         let totalShots = 0;
         let totalHours = 0;
 
-        allTags.forEach(tag => {
-            const tagName = tag.name;
-            if (totals[tagName].shots > 0 || totals[tagName].hours > 0) {
+        // Iterate through all tags in totals (includes dynamically added ones)
+        Object.keys(totals).forEach(tagName => {
+            if (totals[tagName] && (totals[tagName].shots > 0 || totals[tagName].hours > 0)) {
                 const color = this.hexToRgb(TagManager.getTagColor(tagName));
                 
                 // Row background (alternating)
