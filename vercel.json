@@ -1,0 +1,9 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "destination": "https://www.videomarkapp.com/$1",
+      "permanent": true
+    }
+  ]
+}
