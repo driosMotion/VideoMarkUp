@@ -148,6 +148,15 @@ const TagManager = {
      * @returns {string}
      */
     getTagLabel(tag) {
+        if (
+            typeof TagEditor !== 'undefined' &&
+            typeof TagEditor.getTagMeta === 'function'
+        ) {
+            const meta = TagEditor.getTagMeta(tag);
+            if (meta && meta.label) {
+                return meta.label;
+            }
+        }
         const labels = {
             vfx: 'VFX',
             roto: 'Rotoscopy',
@@ -167,6 +176,15 @@ const TagManager = {
      * @returns {string}
      */
     getTagColor(tag) {
+        if (
+            typeof TagEditor !== 'undefined' &&
+            typeof TagEditor.getTagMeta === 'function'
+        ) {
+            const meta = TagEditor.getTagMeta(tag);
+            if (meta && meta.color) {
+                return meta.color;
+            }
+        }
         const colors = {
             vfx: '#ff6b6b',
             roto: '#4ecdc4',

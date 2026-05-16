@@ -31,6 +31,25 @@ const SnapshotManager = {
     },
 
     /**
+     * Enter = new paragraph (block), Shift+Enter = soft line inside same block.
+     * Makes HTML consistent across browsers and matches PDF soft vs paragraph breaks.
+     * @param {HTMLElement | null} el
+     */
+    setupRichCommentEnter(el) {
+        if (!el) return;
+        el.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            if (e.isComposing) return;
+            e.preventDefault();
+            if (e.shiftKey) {
+                document.execCommand('insertLineBreak');
+            } else {
+                document.execCommand('insertParagraph');
+            }
+        });
+    },
+
+    /**
      * Initialize snapshot manager
      */
     init() {
@@ -63,6 +82,7 @@ const SnapshotManager = {
         // #endregion
         
         const commentInputInline = document.getElementById('commentInputInline');
+        const commentInputModal = document.getElementById('commentInput');
 
         // Comment input - auto-create snapshot on first character
         if (commentInputInline) {
@@ -70,6 +90,8 @@ const SnapshotManager = {
                 this.handleCommentInput();
             });
         }
+        this.setupRichCommentEnter(commentInputInline);
+        this.setupRichCommentEnter(commentInputModal);
 
         // Inline tags/hours: use EVENT DELEGATION so it still works after TagEditor.updateTagsPanel()
         const inlinePanel = document.querySelector('.tags-grid-inline');
@@ -521,7 +543,7 @@ const SnapshotManager = {
             tags: [],
             tagHours: {}
         });
-
+        
         return snapshotId;
     },
 
@@ -1078,7 +1100,8 @@ const SnapshotManager = {
         const tagsHtml = uniqueTags.map(tag => {
             const hours = snapshot.tagHours && snapshot.tagHours[tag];
             const hoursText = hours ? ` (${hours}h)` : '';
-            return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
+            const pillStyle = this.snapshotTagInlineStyle(tag);
+            return `<span class="snapshot-tag" data-tag="${tag}" style="${pillStyle}">${this.escapeHtmlSnapshot(this.getTagLabel(tag))}${hoursText}</span>`;
         }).join('');
 
         // Use marked up image if available, otherwise original
@@ -1220,7 +1243,8 @@ const SnapshotManager = {
             const tagsHtml = updates.tags.map(tag => {
                 const hours = (updates.tagHours || snapshot.tagHours) && (updates.tagHours || snapshot.tagHours)[tag];
                 const hoursText = hours ? ` (${hours}h)` : '';
-                return `<span class="snapshot-tag" data-tag="${tag}">${this.getTagLabel(tag)}${hoursText}</span>`;
+                const pillStyle = this.snapshotTagInlineStyle(tag);
+                return `<span class="snapshot-tag" data-tag="${tag}" style="${pillStyle}">${this.escapeHtmlSnapshot(this.getTagLabel(tag))}${hoursText}</span>`;
             }).join('');
             const tagsContainer = card.querySelector('.snapshot-card-tags');
             if (tagsContainer) {
@@ -1356,17 +1380,57 @@ const SnapshotManager = {
      * @returns {string} Display label
      */
     getTagLabel(tag) {
-        const labels = {
-            vfx: 'VFX',
-            roto: 'Roto',
-            '3d': '3D',
-            color: 'Color',
-            comp: 'Comp',
-            cleanup: 'Cleanup',
-            audio: 'Audio',
-            review: 'Review'
-        };
-        return labels[tag] || tag;
+        return typeof TagManager !== 'undefined' && TagManager.getTagLabel
+            ? TagManager.getTagLabel(tag)
+            : tag;
+    },
+
+    /**
+     * Tint + text color for snapshot-card tag pills (custom tags + built-ins).
+     * @param {string} tag
+     * @returns {string}
+     */
+    snapshotTagInlineStyle(tag) {
+        const hex =
+            typeof TagManager !== 'undefined' && TagManager.getTagColor
+                ? TagManager.getTagColor(tag)
+                : '#888888';
+        const rgb = this.hexToRgb(hex);
+        if (!rgb) {
+            return '';
+        }
+        const { r, g, b } = rgb;
+        return `background: rgba(${r}, ${g}, ${b}, 0.2); color: ${hex};`;
+    },
+
+    /**
+     * Parse #rgb / #rrggbb to components
+     * @param {string} hex
+     * @returns {{r:number,g:number,b:number}|null}
+     */
+    hexToRgb(hex) {
+        if (!hex || typeof hex !== 'string') return null;
+        let h = hex.trim().replace(/^#/, '');
+        if (h.length === 3) {
+            h = h.split('').map((c) => c + c).join('');
+        }
+        if (h.length !== 6 || !/^[0-9a-fA-F]+$/.test(h)) return null;
+        const n = parseInt(h, 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    },
+
+    /**
+     * Minimal HTML escape for snapshot card fragments
+     * @param {string} text
+     * @returns {string}
+     */
+    escapeHtmlSnapshot(text) {
+        if (text == null) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
     },
 
     /**
@@ -1427,7 +1491,7 @@ const SnapshotManager = {
                 }
             } else {
                 // For video projects, seek to the snapshot's timestamp
-                VideoHandler.video.currentTime = nextSnapshot.timestamp;
+            VideoHandler.video.currentTime = nextSnapshot.timestamp;
             }
             
             // Enter edit mode for this snapshot
@@ -1468,7 +1532,7 @@ const SnapshotManager = {
                 }
             } else {
                 // For video projects, seek to the snapshot's timestamp
-                VideoHandler.video.currentTime = prevSnapshot.timestamp;
+            VideoHandler.video.currentTime = prevSnapshot.timestamp;
             }
             
             // Enter edit mode for this snapshot

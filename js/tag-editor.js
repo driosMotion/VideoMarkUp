@@ -126,6 +126,27 @@ const TagEditor = {
     },
 
     /**
+     * Ensure default + custom tags are in memory (e.g. before TagEditor.init() or if allTags was still [])
+     */
+    ensureAllTagsLoaded() {
+        if (!Array.isArray(this.allTags) || this.allTags.length === 0) {
+            this.loadCustomTags();
+            this.allTags = [...this.defaultTags, ...this.customTags];
+        }
+    },
+
+    /**
+     * Get tag meta by id (default + custom). Used by TagManager snapshots, PDFs, etc.
+     * @param {string} tagId
+     * @returns {{id:string,label:string,color:string,isDefault?:boolean}|undefined}
+     */
+    getTagMeta(tagId) {
+        if (!tagId) return undefined;
+        this.ensureAllTagsLoaded();
+        return this.allTags.find((t) => t.id === tagId);
+    },
+
+    /**
      * Open tag editor modal
      */
     openModal() {
@@ -314,27 +335,27 @@ const TagEditor = {
                 App.showToast('Please enter a tag name', 'warning');
                 return;
             }
-            
-            // Generate ID from name
-            const id = name.toLowerCase().replace(/\s+/g, '_');
-            
-            // Check if tag with this ID already exists
-            if (this.allTags.find(t => t.id === id)) {
-                App.showToast('A tag with this name already exists', 'warning');
-                return;
-            }
-            
-            // Add to custom tags
+
+        // Generate ID from name
+        const id = name.toLowerCase().replace(/\s+/g, '_');
+
+        // Check if tag with this ID already exists
+        if (this.allTags.find(t => t.id === id)) {
+            App.showToast('A tag with this name already exists', 'warning');
+            return;
+        }
+
+        // Add to custom tags
             const newTag = { id, label: name, color: selectedColor, isDefault: false };
-            this.customTags.push(newTag);
-            this.saveCustomTags();
-            
+        this.customTags.push(newTag);
+        this.saveCustomTags();
+
             // Close modal and cleanup
             cleanup();
             
             // Refresh main modal
-            this.openModal();
-            App.showToast('Tag added successfully', 'success');
+        this.openModal();
+        App.showToast('Tag added successfully', 'success');
         };
         
         // Handle cancel/close

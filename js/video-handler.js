@@ -658,28 +658,28 @@ const VideoHandler = {
             // Handle video project
             this.video.hidden = false;
             this.showPlaybackControls();
-            
-            // Create URL from stored blob
-            const url = URL.createObjectURL(project.videoData);
-            this.video.src = url;
+        
+        // Create URL from stored blob
+        const url = URL.createObjectURL(project.videoData);
+        this.video.src = url;
 
-            // Store file info for metadata (convert Blob back to File-like object)
-            this.currentFile = new File([project.videoData], project.videoFileName, { 
-                type: project.videoData.type 
-            });
+        // Store file info for metadata (convert Blob back to File-like object)
+        this.currentFile = new File([project.videoData], project.videoFileName, { 
+            type: project.videoData.type 
+        });
 
-            // Wait for video metadata before loading snapshots (need duration for markers)
+        // Wait for video metadata before loading snapshots (need duration for markers)
             const loadSnapshots = async () => {
-                // Load snapshots after video metadata is loaded
-                const snapshots = await Storage.getSnapshots(projectId);
-                SnapshotManager.snapshots = snapshots; // Store in manager
-                snapshots.forEach(snapshot => {
-                    SnapshotManager.addSnapshotToList(snapshot);
-                    SnapshotManager.addTimelineMarker(snapshot);
-                });
-                // Sort snapshots by timecode after loading
-                SnapshotManager.sortSnapshotsByTimecode();
-                SnapshotManager.updateSnapshotCount();
+            // Load snapshots after video metadata is loaded
+            const snapshots = await Storage.getSnapshots(projectId);
+            SnapshotManager.snapshots = snapshots; // Store in manager
+            snapshots.forEach(snapshot => {
+                SnapshotManager.addSnapshotToList(snapshot);
+                SnapshotManager.addTimelineMarker(snapshot);
+            });
+            // Sort snapshots by timecode after loading
+            SnapshotManager.sortSnapshotsByTimecode();
+            SnapshotManager.updateSnapshotCount();
                 
                 // Hide empty state if we have snapshots
                 if (snapshots.length > 0) {
@@ -1102,7 +1102,7 @@ const VideoHandler = {
                 ? snapshotOverlay.naturalWidth / snapshotOverlay.naturalHeight
                 : contentRect.width / contentRect.height;
         } else {
-            const video = this.video;
+        const video = this.video;
             contentAspect = video.videoWidth / video.videoHeight;
             contentRect = video.getBoundingClientRect();
         }

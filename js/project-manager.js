@@ -81,7 +81,7 @@ const ProjectManager = {
                 // Don't close if scrolling inside the dropdown list
                 const listEl = document.getElementById('projectList');
                 if (!listEl || !listEl.contains(e.target)) {
-                    this.closeDropdown();
+                this.closeDropdown();
                 }
             }
         }, true);
@@ -268,7 +268,7 @@ const ProjectManager = {
         });
         console.log(`📂 Root projects: ${rootProjects.length} / Total: ${projects.length}`);
         rootProjects.sort((a, b) => new Date(b.lastEditedAt || b.createdAt) - new Date(a.lastEditedAt || a.createdAt));
-        
+
         for (const project of rootProjects) {
             html += this.renderProjectItem(project, false);
         }
@@ -465,35 +465,35 @@ const ProjectManager = {
             e.stopPropagation();
             e.preventDefault();
             
-            btn.classList.add('deleting');
-            deleteProgress = document.createElement('div');
-            deleteProgress.className = 'delete-progress';
-            btn.insertBefore(deleteProgress, btn.firstChild);
-            deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
+                btn.classList.add('deleting');
+                deleteProgress = document.createElement('div');
+                deleteProgress.className = 'delete-progress';
+                btn.insertBefore(deleteProgress, btn.firstChild);
+                deleteProgress.style.animation = 'deleteProgress 1s linear forwards';
+                
+                deleteHoldTimer = setTimeout(async () => {
+                    btn.classList.remove('deleting');
+                    if (deleteProgress && deleteProgress.parentNode) {
+                        deleteProgress.remove();
+                    }
+                await deleteCallback();
+                }, 1000);
+        };
             
-            deleteHoldTimer = setTimeout(async () => {
+            const cancelDelete = () => {
                 btn.classList.remove('deleting');
+                if (deleteHoldTimer) {
+                    clearTimeout(deleteHoldTimer);
+                    deleteHoldTimer = null;
+                }
                 if (deleteProgress && deleteProgress.parentNode) {
                     deleteProgress.remove();
                 }
-                await deleteCallback();
-            }, 1000);
-        };
-
-        const cancelDelete = () => {
-            btn.classList.remove('deleting');
-            if (deleteHoldTimer) {
-                clearTimeout(deleteHoldTimer);
-                deleteHoldTimer = null;
-            }
-            if (deleteProgress && deleteProgress.parentNode) {
-                deleteProgress.remove();
-            }
-        };
-
+            };
+            
         btn.addEventListener('mousedown', startDelete);
-        btn.addEventListener('mouseup', cancelDelete);
-        btn.addEventListener('mouseleave', cancelDelete);
+            btn.addEventListener('mouseup', cancelDelete);
+            btn.addEventListener('mouseleave', cancelDelete);
         btn.addEventListener('touchstart', startDelete);
         btn.addEventListener('touchend', cancelDelete);
         btn.addEventListener('touchcancel', cancelDelete);

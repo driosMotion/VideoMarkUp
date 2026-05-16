@@ -27,6 +27,9 @@ const App = {
             ProjectSharing.init();
             ProjectManager.init();
 
+            // Tag registry MUST load before projects/snapshots (cards/PDF read TagEditor.getTagMeta for colors)
+            TagEditor.init();
+
             // FAQ modal
             if (window.FAQ && typeof window.FAQ.init === 'function') {
                 window.FAQ.init();
@@ -40,9 +43,6 @@ const App = {
 
             // Auto-load the most recently edited project
             await this.loadLatestProject();
-
-            // Initialize tag editor after everything else is ready
-            TagEditor.init();
 
             ErrorHandler.info('Video Markup initialized successfully');
         } catch (error) {

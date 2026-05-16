@@ -107,14 +107,23 @@
 .snapshot-tag[data-tag="audio"] { background: rgba(255, 159, 243, 0.2); color: var(--tag-audio); }
 .snapshot-tag[data-tag="review"] { background: rgba(243, 156, 18, 0.2); color: var(--tag-review); }
 
+/* Rich HTML (spans + nested divs/br): do NOT use -webkit-line-clamp + -webkit-box — it breaks layout */
 .snapshot-card-comment {
     font-size: 0.8125rem;
     color: var(--text-secondary);
-    line-height: 1.4;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    line-height: 1.45;
+    display: block;
+    max-height: 5.5rem;
     overflow: hidden;
+    word-break: break-word;
+}
+
+.snapshot-card-comment > * + * {
+    margin-top: 0.35em;
+}
+
+.snapshot-card-comment div + div {
+    margin-top: 0.25em;
 }
 
 .snapshot-card-comment:empty::before {

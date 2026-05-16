@@ -149,15 +149,38 @@ const ProjectSharing = {
         try {
             const zip = await JSZip.loadAsync(file);
 
-            // Read manifest
-            const manifestFile = zip.file('manifest.json');
-            if (!manifestFile) {
+            const isIgnoredZipEntry = (name) =>
+                !name ||
+                name.endsWith('/') ||
+                name.startsWith('__MACOSX/') ||
+                name.includes('/__MACOSX/');
+
+            const findManifestPath = () => {
+                // Prefer root manifest if present
+                if (zip.file('manifest.json')) return 'manifest.json';
+
+                // Otherwise search anywhere (case-insensitive) and pick shallowest
+                const matches = zip
+                    .file(/(^|\/)manifest\.json$/i)
+                    .filter((f) => f && !isIgnoredZipEntry(f.name));
+
+                if (matches.length === 0) return null;
+                matches.sort((a, b) => a.name.length - b.name.length);
+                return matches[0].name;
+            };
+
+            const manifestPath = findManifestPath();
+            if (!manifestPath) {
                 throw new Error('Invalid project file: missing manifest');
             }
-            const manifest = JSON.parse(await manifestFile.async('text'));
+            const baseDir = manifestPath.replace(/manifest\.json$/i, '');
 
-            // Read video file
-            const videoFiles = zip.folder('video').file(/.*/);
+            // Read manifest
+            const manifest = JSON.parse(await zip.file(manifestPath).async('text'));
+
+            // Read video file (relative to baseDir)
+            const videoFolder = zip.folder(`${baseDir}video`);
+            const videoFiles = videoFolder ? videoFolder.file(/.+/) : [];
             if (videoFiles.length === 0) {
                 throw new Error('Invalid project file: missing video');
             }
@@ -170,14 +193,14 @@ const ProjectSharing = {
                 videoData: videoBlob
             });
 
-            // Read snapshots metadata
-            const snapshotsFile = zip.file('snapshots.json');
+            // Read snapshots metadata (relative to baseDir)
+            const snapshotsFile = zip.file(`${baseDir}snapshots.json`);
             const snapshotsData = snapshotsFile ? JSON.parse(await snapshotsFile.async('text')) : [];
 
             // Import each snapshot
             for (let i = 0; i < snapshotsData.length; i++) {
                 const snapshotMeta = snapshotsData[i];
-                const snapshotFolder = `snapshots/${i.toString().padStart(4, '0')}`;
+                const snapshotFolder = `${baseDir}snapshots/${i.toString().padStart(4, '0')}`;
 
                 // Read original image
                 const originalFile = zip.file(`${snapshotFolder}/original.png`);

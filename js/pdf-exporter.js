@@ -297,7 +297,12 @@ const PDFExporter = {
 
         // Parse HTML comment and render with colors
         const comment = snapshot.comment || 'No comment';
-        this.renderRichTextComment(doc, comment, margin, commentY + 8, pageWidth - (margin * 2));
+        this.renderRichTextComment(doc, comment, margin, commentY + 8, pageWidth - margin * 2, {
+            pageWidth,
+            pageHeight,
+            margin,
+            yMax: pageHeight - 22
+        });
 
         // Footer
         doc.setFontSize(8);
@@ -338,13 +343,23 @@ const PDFExporter = {
             };
         }
         
-        // Handle hex format
-        const hexMatch = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(color);
+        // Handle hex format (6 or 3 hex digits, optional #)
+        let hexMatch = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(
+            color
+        );
         if (hexMatch) {
             return {
                 r: parseInt(hexMatch[1], 16),
                 g: parseInt(hexMatch[2], 16),
                 b: parseInt(hexMatch[3], 16)
+            };
+        }
+        hexMatch = /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(color);
+        if (hexMatch) {
+            return {
+                r: parseInt(hexMatch[1] + hexMatch[1], 16),
+                g: parseInt(hexMatch[2] + hexMatch[2], 16),
+                b: parseInt(hexMatch[3] + hexMatch[3], 16)
             };
         }
         
@@ -376,50 +391,172 @@ const PDFExporter = {
     },
 
     /**
-     * Render rich text comment with colors in PDF
-     * @param {Object} doc - jsPDF document
-     * @param {string} htmlContent - HTML content
-     * @param {number} x - X position
-     * @param {number} y - Y position
-     * @param {number} maxWidth - Maximum width
+     * Render rich text comment with colors in PDF.
+     * Normalizes &nbsp;/Unicode spaces, merges same-color runs, supports &lt;font color&gt;.
      */
-    renderRichTextComment(doc, htmlContent, x, y, maxWidth) {
-        // Create a temporary div to parse HTML
+    normalizeWhitespaceForPdf(text) {
+        if (text == null || text === '') return '';
+        let t = String(text);
+        t = t.replace(/\u00a0/g, ' ');
+        t = t.replace(/\u202f|\u2007|\u2009|\u200a/g, ' ');
+        t = t.replace(/[\u200b-\u200d\ufeff]/g, '');
+        t = t.replace(/\t/g, ' ');
+        t = t.replace(/[ \u00a0]+/g, ' ');
+        return t.trimEnd();
+    },
+
+    renderRichTextComment(doc, htmlContent, x, y, maxWidth, layout) {
+        const safeHtml = this.sanitizeCommentHtmlForPdfImport(
+            this.normalizeCommentHtmlForPdf(htmlContent)
+        );
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = htmlContent;
-        
-        // Extract text with colors
+        tempDiv.innerHTML = safeHtml;
+
         const textSegments = this.extractTextSegments(tempDiv);
-        
+
         if (textSegments.length === 0) {
             doc.setTextColor(240, 240, 242);
             doc.text('No comment', x, y);
             return;
         }
-        
+
+        const pageWidth = layout && layout.pageWidth;
+        const pageHeight = layout && layout.pageHeight;
+        const margin = layout && layout.margin != null ? layout.margin : 15;
+        const yMax =
+            layout && layout.yMax != null
+                ? layout.yMax
+                : pageHeight != null
+                  ? pageHeight - 22
+                  : Infinity;
+
         let currentX = x;
         let currentY = y;
-        const lineHeight = 6;
-        
-        textSegments.forEach(segment => {
+        const advanceSoft = 3.6;
+        const advancePara = 6;
+
+        const paginate = Number.isFinite(yMax) && pageWidth != null && pageHeight != null;
+
+        const startNewCommentPage = () => {
+            if (!paginate) return;
+            doc.addPage();
+            doc.setFillColor(20, 20, 22);
+            doc.rect(0, 0, pageWidth, pageHeight, 'F');
+            currentY = margin + 14;
+            currentX = x;
+        };
+
+        const ensureVerticalSpace = (deltaY) => {
+            if (!paginate) return;
+            if (currentY + deltaY <= yMax) return;
+            startNewCommentPage();
+        };
+
+        textSegments.forEach((segment) => {
+            if (segment.type === 'break') {
+                currentX = x;
+                const step =
+                    segment.variant === 'para' ? advancePara : advanceSoft;
+                ensureVerticalSpace(step);
+                currentY += step;
+                return;
+            }
+
             const color = this.hexToRgb(segment.color);
             doc.setTextColor(color.r, color.g, color.b);
-            
-            const words = segment.text.split(' ');
-            words.forEach((word, idx) => {
-                const wordWithSpace = idx < words.length - 1 ? word + ' ' : word;
-                const wordWidth = doc.getTextWidth(wordWithSpace);
-                
-                // Check if we need to wrap to next line
-                if (currentX + wordWidth > x + maxWidth && currentX > x) {
+
+            const paragraphLines = String(segment.text || '').split(
+                /\r\n|\r|\n/
+            );
+            paragraphLines.forEach((line, lineIndex) => {
+                if (lineIndex > 0) {
                     currentX = x;
-                    currentY += lineHeight;
+                    ensureVerticalSpace(advanceSoft);
+                    currentY += advanceSoft;
                 }
-                
-                doc.text(wordWithSpace, currentX, currentY);
-                currentX += wordWidth;
+
+                const lineNorm = this.normalizeWhitespaceForPdf(line);
+                if (!lineNorm) return;
+
+                const words = lineNorm.split(/\s+/).filter(Boolean);
+                words.forEach((word, idx) => {
+                    if (
+                        idx === 0 &&
+                        lineIndex === 0 &&
+                        currentX > x + 0.2
+                    ) {
+                        const sw = doc.getTextWidth(' ');
+                        if (currentX + sw > x + maxWidth) {
+                            currentX = x;
+                            ensureVerticalSpace(advanceSoft);
+                            currentY += advanceSoft;
+                        } else {
+                            doc.text(' ', currentX, currentY);
+                            currentX += sw;
+                        }
+                    }
+
+                    const wordWithSpace =
+                        idx < words.length - 1 ? word + ' ' : word;
+                    const wordWidth = doc.getTextWidth(wordWithSpace);
+
+                    if (
+                        currentX + wordWidth > x + maxWidth &&
+                        currentX > x
+                    ) {
+                        currentX = x;
+                        ensureVerticalSpace(advanceSoft);
+                        currentY += advanceSoft;
+                    }
+
+                    doc.text(wordWithSpace, currentX, currentY);
+                    currentX += wordWidth;
+                });
             });
         });
+    },
+
+    /**
+     * @deprecated Do not merge text runs — same-color blocks in separate DOM
+     * lines were glued into one line in the PDF. Kept empty for compat if referenced.
+     */
+    mergeAdjacentTextRuns(segments) {
+        return segments;
+    },
+
+    /**
+     * Strip attributes that break CSS parsing inside our parse container
+     * @param {string} html
+     * @returns {string}
+     */
+    sanitizeCommentHtmlForPdfImport(html) {
+        if (!html) return html;
+        return String(html).replace(/background-color:\s*;/gi, '');
+    },
+
+    /**
+     * If comment is plain text (no tags), escape and convert newlines to <br> so the DOM parser keeps line breaks.
+     * Rich HTML from the editor is left as-is (already has <br>, <div>, spans, etc.).
+     * @param {string} htmlContent
+     * @returns {string}
+     */
+    normalizeCommentHtmlForPdf(htmlContent) {
+        if (
+            htmlContent == null ||
+            htmlContent === '' ||
+            htmlContent === 'No comment'
+        ) {
+            return htmlContent || '';
+        }
+        const s = String(htmlContent);
+        if (/<[a-z][\s\S]*>/i.test(s.trim())) {
+            return s;
+        }
+        return s
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\r\n|\r|\n/g, '<br>');
     },
 
     /**
@@ -429,23 +566,88 @@ const PDFExporter = {
      */
     extractTextSegments(element) {
         const segments = [];
-        
-        const traverse = (node, defaultColor = '#f0f0f2') => {
+
+        const blockEndsWithNewline = new Set([
+            'DIV',
+            'P',
+            'LI',
+            'H1',
+            'H2',
+            'H3',
+            'H4'
+        ]);
+
+        const blockTags = blockEndsWithNewline;
+
+        /** When inline/text is followed by a block sibling, browsers wrap; PDF must insert a paragraph break. */
+        const needsParaBetweenSiblings = (prev, next) => {
+            if (!next || next.nodeType !== Node.ELEMENT_NODE) return false;
+            if (!blockTags.has(next.tagName)) return false;
+            if (!prev) return false;
+            if (prev.nodeType === Node.ELEMENT_NODE) {
+                if (prev.tagName === 'BR') return false;
+                if (blockTags.has(prev.tagName)) return false;
+            }
+            return true;
+        };
+
+        const traverse = (node, defaultColor = '#f0f0f2', isRootWrapper = false) => {
             if (node.nodeType === Node.TEXT_NODE) {
-                const text = node.textContent.trim();
-                if (text) {
-                    segments.push({ text, color: defaultColor });
-                }
+                const text = node.textContent.replace(/\r\n/g, '\n');
+                if (text.length === 0) return;
+                if (text.trim() === '' && !text.includes('\n')) return;
+                segments.push({ text, color: defaultColor });
             } else if (node.nodeType === Node.ELEMENT_NODE) {
-                const color = node.style.color || defaultColor;
-                
-                node.childNodes.forEach(child => {
-                    traverse(child, color);
-                });
+                const tag = node.tagName;
+                if (tag === 'BR') {
+                    segments.push({
+                        type: 'break',
+                        variant: 'soft'
+                    });
+                    return;
+                }
+
+                const color = (() => {
+                    if (node.style && node.style.color) {
+                        return node.style.color;
+                    }
+                    if (tag === 'FONT') {
+                        const fc = node.getAttribute('color');
+                        if (fc) return fc.trim();
+                    }
+                    return defaultColor;
+                })();
+
+                const children = Array.from(node.childNodes);
+                for (let i = 0; i < children.length; i++) {
+                    traverse(children[i], color, false);
+                    const next = children[i + 1];
+                    if (needsParaBetweenSiblings(children[i], next)) {
+                        segments.push({
+                            type: 'break',
+                            variant: 'para'
+                        });
+                    }
+                }
+
+                if (blockEndsWithNewline.has(tag)) {
+                    const last = node.lastChild;
+                    const lastIsBr =
+                        last &&
+                        last.nodeType === Node.ELEMENT_NODE &&
+                        last.tagName === 'BR';
+                    const skipRootDivSuffix = isRootWrapper && tag === 'DIV';
+                    if (!lastIsBr && !skipRootDivSuffix) {
+                        segments.push({
+                            type: 'break',
+                            variant: 'para'
+                        });
+                    }
+                }
             }
         };
-        
-        traverse(element);
+
+        traverse(element, '#f0f0f2', true);
         return segments;
     },
 
