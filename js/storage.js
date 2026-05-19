@@ -88,6 +88,8 @@ const Storage = {
             name: project.name || 'Untitled Project',
             videoFileName: project.videoFileName,
             videoData: project.videoData, // Blob
+            isImageProject: !!project.isImageProject,
+            folderId: project.folderId != null ? project.folderId : null,
             createdAt: new Date(),
             lastEditedAt: new Date()
         });
@@ -270,6 +272,85 @@ const Storage = {
                 lastEditedAt: new Date()
             });
         }
+    },
+
+    /**
+     * True if project record is an image-only (stills) project.
+     * @param {Object} project
+     * @returns {boolean}
+     */
+    isImageProjectRecord(project) {
+        if (!project) return false;
+        return !!(project.isImageProject || project.videoFileName === 'IMAGE_PROJECT');
+    },
+
+    /**
+     * Merge multiple image projects into a new project. Snapshots are **copied**;
+     * source projects and their snapshots are left unchanged.
+     * @param {number[]} orderedProjectIds - Project IDs in merge order
+     * @param {string} mergedName - Name for the new project
+     * @returns {Promise<number>} New project id
+     */
+    async mergeImageProjects(orderedProjectIds, mergedName) {
+        if (!orderedProjectIds || orderedProjectIds.length < 2) {
+            throw new Error('Select at least two image projects to merge.');
+        }
+
+        const name =
+            (mergedName && String(mergedName).trim()) ||
+            `Merged stills (${orderedProjectIds.length} projects)`;
+
+        const placeholderBlob = new Blob(['IMAGE_PROJECT'], { type: 'text/plain' });
+
+        return await db.transaction('rw', db.projects, db.snapshots, async () => {
+            const newProjectId = await db.projects.add({
+                name,
+                videoFileName: 'IMAGE_PROJECT',
+                videoData: placeholderBlob,
+                isImageProject: true,
+                folderId: null,
+                createdAt: new Date(),
+                lastEditedAt: new Date()
+            });
+
+            let timestamp = 0;
+
+            for (const projectId of orderedProjectIds) {
+                const proj = await db.projects.get(projectId);
+                if (!proj) continue;
+                if (!Storage.isImageProjectRecord(proj)) continue;
+
+                const snaps = await db.snapshots
+                    .where('projectId')
+                    .equals(projectId)
+                    .sortBy('timestamp');
+
+                for (const s of snaps) {
+                    const tags = s.tags && Array.isArray(s.tags)
+                        ? [...new Set(s.tags)]
+                        : [];
+
+                    await db.snapshots.add({
+                        projectId: newProjectId,
+                        timestamp: timestamp++,
+                        originalImage: s.originalImage,
+                        markedUpImage: s.markedUpImage || null,
+                        fabricData: s.fabricData || null,
+                        comment: s.comment || '',
+                        tags,
+                        tagHours: s.tagHours || {},
+                        createdAt: new Date()
+                    });
+                }
+            }
+
+            if (timestamp === 0) {
+                await db.projects.delete(newProjectId);
+                throw new Error('No stills found in the selected projects.');
+            }
+
+            return newProjectId;
+        });
     },
 
     /**

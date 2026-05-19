@@ -14,6 +14,193 @@ const SnapshotManager = {
     isCreatingSnapshot: false,
     _inlineTagsDelegationBound: false,
     currentImageIndex: 0, // For image-only projects
+    _reorderDraggingCard: null,
+    _snapshotOrderBeforeDrag: null,
+    _snapshotReorderDelegatesBound: false,
+
+    /**
+     * Insert point for reorder: card to insert BEFORE, or null to append dragging card at end.
+     * @param {HTMLElement} list
+     * @param {HTMLElement} draggingCard
+     * @param {number} mouseY
+     * @returns {HTMLElement|null}
+     */
+    getReorderInsertBeforeCard(list, draggingCard, mouseY) {
+        const siblings = [
+            ...list.querySelectorAll('.snapshot-card')
+        ].filter((c) => c !== draggingCard && c.parentNode === list);
+
+        if (siblings.length === 0) return null;
+
+        let closestBelow = /** @type {{ offset: number, el: HTMLElement } | null} */ (
+            null
+        );
+
+        siblings.forEach((child) => {
+            const box = child.getBoundingClientRect();
+            const offset = mouseY - box.top - box.height / 2;
+            if (offset < 0) {
+                if (!closestBelow || offset > closestBelow.offset) {
+                    closestBelow = { offset, el: child };
+                }
+            }
+        });
+
+        if (closestBelow) return closestBelow.el;
+
+        return null;
+    },
+
+    /** @param {HTMLElement} card */
+    updateCardTimestampDisplay(card, timestamp) {
+        const ts = Number(timestamp);
+        card.dataset.timestamp = String(ts);
+
+        const tcEl = card.querySelector('.snapshot-card-timecode');
+        if (tcEl && window.VideoHandler && typeof VideoHandler.formatTimecode === 'function') {
+            tcEl.textContent = VideoHandler.formatTimecode(ts);
+        }
+
+        const img = card.querySelector('.snapshot-card-thumbnail img');
+        if (
+            img &&
+            window.VideoHandler &&
+            typeof VideoHandler.formatTimecode === 'function'
+        ) {
+            img.alt = `Snapshot at ${VideoHandler.formatTimecode(ts)}`;
+        }
+    },
+
+    /**
+     * After drag-reorder on image projects, persist timestamp order as 0..n-1.
+     */
+    async persistSnapshotReorderFromDOM() {
+        if (
+            !VideoHandler?.isImageProject ||
+            !VideoHandler?.currentProjectId
+        ) {
+            return;
+        }
+
+        const list = document.getElementById('snapshotsList');
+        if (!list) return;
+
+        const cards = [...list.querySelectorAll('.snapshot-card')];
+        if (cards.length === 0) return;
+
+        const orderIds = cards.map((c) => Number(c.dataset.id));
+        if (
+            this._snapshotOrderBeforeDrag &&
+            JSON.stringify(orderIds) ===
+                JSON.stringify(this._snapshotOrderBeforeDrag)
+        ) {
+            this._snapshotOrderBeforeDrag = null;
+            return;
+        }
+        this._snapshotOrderBeforeDrag = null;
+
+        const updates = [];
+        let idx = 0;
+
+        for (const card of cards) {
+            const id = Number(card.dataset.id);
+            const newTs = idx++;
+            const snap = this.snapshots.find((s) => s.id === id);
+
+            this.updateCardTimestampDisplay(card, newTs);
+
+            if (snap && snap.timestamp !== newTs) {
+                snap.timestamp = newTs;
+                updates.push(Storage.updateSnapshot(id, { timestamp: newTs }));
+            }
+        }
+
+        if (updates.length > 0) {
+            await Promise.all(updates);
+        }
+
+        this.updateSnapshotNumbers();
+    },
+
+    /**
+     * Delegated drag/drop for snapshot card reorder (image projects only).
+     */
+    setupSnapshotImageReorderDelegates() {
+        const list = document.getElementById('snapshotsList');
+        if (!list || this._snapshotReorderDelegatesBound) return;
+        this._snapshotReorderDelegatesBound = true;
+
+        list.addEventListener(
+            'dragstart',
+            (e) => {
+                const handle = e.target.closest('.snapshot-card-drag-handle');
+                if (!handle || !VideoHandler?.isImageProject) return;
+
+                e.stopPropagation();
+
+                const card = handle.closest('.snapshot-card');
+                if (!card || !list.contains(card)) return;
+
+                this._reorderDraggingCard = card;
+                this._snapshotOrderBeforeDrag = [
+                    ...list.querySelectorAll('.snapshot-card')
+                ].map((c) => Number(c.dataset.id));
+
+                card.classList.add('snapshot-card--dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(card.dataset.id));
+            },
+            true
+        );
+
+        list.addEventListener('dragend', async (e) => {
+            const handle = e.target.closest('.snapshot-card-drag-handle');
+            if (!handle) return;
+
+            e.stopPropagation();
+
+            const card = handle.closest('.snapshot-card');
+            if (card) {
+                card.classList.remove('snapshot-card--dragging');
+            }
+
+            this._reorderDraggingCard = null;
+            try {
+                await this.persistSnapshotReorderFromDOM();
+            } catch (err) {
+                console.error('Snapshot reorder persist failed:', err);
+                App.showToast('Could not save new order', 'error');
+            }
+        });
+
+        list.addEventListener('dragover', (e) => {
+            if (!this._reorderDraggingCard || !VideoHandler?.isImageProject) {
+                return;
+            }
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            const dragging = this._reorderDraggingCard;
+            const insertBefore = this.getReorderInsertBeforeCard(
+                list,
+                dragging,
+                e.clientY
+            );
+
+            if (insertBefore == null) {
+                if (dragging.nextSibling !== null || dragging.parentNode !== list) {
+                    list.appendChild(dragging);
+                }
+            } else if (insertBefore !== dragging) {
+                list.insertBefore(dragging, insertBefore);
+            }
+        });
+
+        list.addEventListener('drop', (e) => {
+            if (!VideoHandler?.isImageProject) return;
+            e.preventDefault();
+        });
+    },
 
     /**
      * Reset ONLY the tags/hours UI (does not clear comment)
@@ -57,9 +244,326 @@ const SnapshotManager = {
         console.log('[DEBUG-INIT] SnapshotManager.init() called at', new Date().toISOString());
         // #endregion
         this.setupEventListeners();
+        this.initAddStillsImport();
+        this.initReplaceStillAsset();
+        this.setupSnapshotImageReorderDelegates();
         // #region agent log
         console.log('[DEBUG-INIT] SnapshotManager.init() completed');
         // #endregion
+    },
+
+    /**
+     * Refresh UI for image-only project controls (sidebar + toolbar).
+     */
+    syncImageProjectExtras() {
+        this.syncAddStillsImportButton();
+        this.syncReplaceStillAssetButton();
+    },
+
+    /**
+     * Show “add stills” only for image-only projects with an open project.
+     */
+    syncAddStillsImportButton() {
+        const btn = document.getElementById('addStillsImagesBtn');
+        if (!btn) return;
+        const show = !!(
+            VideoHandler &&
+            VideoHandler.isImageProject &&
+            VideoHandler.currentProjectId
+        );
+        btn.hidden = !show;
+    },
+
+    /**
+     * Tools bar: replace underlying still (image projects only).
+     */
+    syncReplaceStillAssetButton() {
+        const btn = document.getElementById('replaceStillAssetBtn');
+        if (!btn) return;
+        const eligible = !!(
+            VideoHandler?.isImageProject &&
+            VideoHandler?.currentProjectId &&
+            this.snapshots?.length > 0
+        );
+        btn.hidden = !eligible;
+        if (eligible) {
+            btn.disabled = !this.getTargetSnapshotIdForReplace();
+        } else {
+            btn.disabled = false;
+        }
+    },
+
+    /**
+     * Snapshot to use for “replace still” when in image mode.
+     * @returns {number|null}
+     */
+    getTargetSnapshotIdForReplace() {
+        if (!VideoHandler?.isImageProject || !this.snapshots?.length) {
+            return null;
+        }
+        if (this.currentSnapshotId) {
+            return this.currentSnapshotId;
+        }
+        if (window.DrawingTool?.activeSnapshotId) {
+            return DrawingTool.activeSnapshotId;
+        }
+
+        const sorted = [...this.snapshots].sort(
+            (a, b) => a.timestamp - b.timestamp
+        );
+        if (sorted.length === 1) {
+            return sorted[0].id;
+        }
+
+        const o = document.getElementById('snapshotOverlay');
+        if (o && !o.hidden && (o.getAttribute('src') || o.src)) {
+            return sorted[0].id;
+        }
+        return null;
+    },
+
+    initReplaceStillAsset() {
+        const btn = document.getElementById('replaceStillAssetBtn');
+        const input = document.getElementById('replaceStillAssetInput');
+        if (!btn || !input) return;
+
+        btn.addEventListener('click', () => {
+            if (!VideoHandler?.isImageProject) {
+                App.showToast(
+                    'Replace still is only available in image projects.',
+                    'info'
+                );
+                return;
+            }
+            this.syncReplaceStillAssetButton();
+            if (!this.getTargetSnapshotIdForReplace()) {
+                App.showToast(
+                    'Select a snapshot first (click a card in the list).',
+                    'warning'
+                );
+                return;
+            }
+            input.value = '';
+            input.click();
+        });
+
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            await this.replaceStillAssetFromFile(file);
+            input.value = '';
+        });
+
+        this.syncReplaceStillAssetButton();
+    },
+
+    /**
+     * Replace stored image for target snapshot; clears fabric/markedUpImage.
+     * @param {File} file
+     */
+    async replaceStillAssetFromFile(file) {
+        if (!file?.type?.startsWith('image/')) {
+            App.showToast('Choose an image file', 'warning');
+            return;
+        }
+        if (!VideoHandler?.isImageProject || !VideoHandler?.currentProjectId) {
+            App.showToast('Open an image project first.', 'warning');
+            return;
+        }
+
+        const id = this.getTargetSnapshotIdForReplace();
+        if (!id) {
+            App.showToast(
+                'Select a snapshot first (click a card in the list).',
+                'warning'
+            );
+            return;
+        }
+
+        if (
+            !confirm(
+                'Replace this still? Markups drawn on the image will be removed. Tags and comment are kept.'
+            )
+        ) {
+            return;
+        }
+
+        if (DrawingTool.autoSaveTimeout) {
+            clearTimeout(DrawingTool.autoSaveTimeout);
+            DrawingTool.autoSaveTimeout = null;
+        }
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = null;
+        }
+
+        try {
+            const dataUrl = await VideoHandler.readImageAsDataURL(file);
+
+            await Storage.updateSnapshot(id, {
+                originalImage: dataUrl,
+                fabricData: null,
+                markedUpImage: null
+            });
+
+            const snapshot = await Storage.getSnapshot(id);
+            const ix = this.snapshots.findIndex((s) => s.id === id);
+            if (ix >= 0) {
+                this.snapshots[ix] = snapshot;
+            }
+
+            const card = document.querySelector(
+                `.snapshot-card[data-id="${id}"]`
+            );
+            if (card && snapshot) {
+                card.classList.remove('has-markup');
+                const img = card.querySelector('.snapshot-card-thumbnail img');
+                const thumb = snapshot.markedUpImage || snapshot.originalImage;
+                if (img && thumb) {
+                    img.src = thumb;
+                }
+            }
+
+            const editingThis =
+                this.currentSnapshotId === id ||
+                DrawingTool.activeSnapshotId === id;
+
+            if (editingThis) {
+                await this.enterInlineEditMode(id, dataUrl, null, true);
+            } else if (VideoHandler.isImageProject) {
+                const o = document.getElementById('snapshotOverlay');
+                if (o && !o.hidden) {
+                    const sorted = [...this.snapshots].sort(
+                        (a, b) => a.timestamp - b.timestamp
+                    );
+                    if (sorted[0] && sorted[0].id === id) {
+                        o.src = dataUrl;
+                    }
+                }
+            }
+
+            this.syncReplaceStillAssetButton();
+            App.showToast('Still image replaced', 'success');
+        } catch (err) {
+            console.error('replaceStillAssetFromFile:', err);
+            App.showToast('Could not replace still image', 'error');
+        }
+    },
+
+    /**
+     * Sidebar: add more image files as snapshots (image projects only).
+     */
+    initAddStillsImport() {
+        const btn = document.getElementById('addStillsImagesBtn');
+        const input = document.getElementById('addStillsImagesInput');
+        if (!btn || !input) return;
+
+        btn.addEventListener('click', () => {
+            if (!VideoHandler?.isImageProject) {
+                App.showToast(
+                    'Add stills is only available in image projects.',
+                    'info'
+                );
+                return;
+            }
+            if (!VideoHandler?.currentProjectId) {
+                App.showToast('No project loaded', 'warning');
+                return;
+            }
+            input.value = '';
+            input.click();
+        });
+
+        input.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files || []).filter((f) =>
+                f.type.startsWith('image/')
+            );
+            if (files.length === 0) return;
+            await this.appendStillsFromImageFiles(files);
+            input.value = '';
+        });
+
+        this.syncImageProjectExtras();
+    },
+
+    /**
+     * Append still images from the file picker after the highest snapshot order.
+     * @param {File[]} files - Image File objects
+     */
+    async appendStillsFromImageFiles(files) {
+        if (
+            !VideoHandler?.currentProjectId ||
+            !VideoHandler?.isImageProject
+        ) {
+            App.showToast('Open an image project to add stills.', 'warning');
+            return;
+        }
+
+        const projectId = VideoHandler.currentProjectId;
+        const maxTs = this.snapshots.reduce((max, s) => {
+            const t = Number(s.timestamp);
+            return Number.isFinite(t) ? Math.max(max, t) : max;
+        }, -1);
+
+        App.showToast(`Adding ${files.length} image(s)...`, 'info');
+
+        let added = 0;
+        let lastSnapshot = null;
+        let nextTs = maxTs + 1;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                const dataUrl = await VideoHandler.readImageAsDataURL(file);
+                const ts = nextTs++;
+                const id = await this.createSnapshotFromImage(
+                    projectId,
+                    dataUrl,
+                    file.name,
+                    ts
+                );
+                const snapshot = await Storage.getSnapshot(id);
+                if (
+                    snapshot &&
+                    !this.snapshots.some((x) => x.id === snapshot.id)
+                ) {
+                    this.snapshots.push(snapshot);
+                }
+                if (snapshot) {
+                    this.addSnapshotToList(snapshot);
+                    added++;
+                    lastSnapshot = snapshot;
+                }
+            } catch (err) {
+                console.error(`Error adding image ${file.name}:`, err);
+            }
+        }
+
+        this.sortSnapshotsByTimecode();
+        this.updateSnapshotCount();
+
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) {
+            emptyState.hidden = this.snapshots.length > 0;
+        }
+
+        if (lastSnapshot) {
+            const overlay = document.getElementById('snapshotOverlay');
+            if (overlay) {
+                overlay.src =
+                    lastSnapshot.originalImage || lastSnapshot.imageData;
+            }
+            await this.enterInlineEditMode(lastSnapshot.id);
+        }
+
+        App.showToast(
+            added === files.length
+                ? `Added ${added} still(s)`
+                : `Added ${added} of ${files.length} image(s)`,
+            added > 0 ? 'success' : 'warning'
+        );
+
+        this.syncImageProjectExtras();
     },
 
     /**
@@ -641,6 +1145,7 @@ const SnapshotManager = {
 
         // Initialize drawing tool with this snapshot
         DrawingTool.enterEditMode(snapshotId, imageData, fabricData);
+        this.syncImageProjectExtras();
     },
 
     /**
@@ -958,6 +1463,7 @@ const SnapshotManager = {
         this.currentSnapshotId = null;
         this.quickCommentSnapshotId = null;
         DrawingTool.exitEditMode();
+        this.syncImageProjectExtras();
     },
 
     /**
@@ -1195,6 +1701,34 @@ const SnapshotManager = {
         
         deleteBtn.addEventListener('touchend', cancelDelete);
         deleteBtn.addEventListener('touchcancel', cancelDelete);
+
+        // Image-only projects: draggable grip so stills can be reordered without stealing card clicks
+        if (window.VideoHandler && VideoHandler.isImageProject) {
+            const thumbEl = card.querySelector('.snapshot-card-thumbnail');
+            if (thumbEl && !thumbEl.querySelector('.snapshot-card-drag-handle')) {
+                const handle = document.createElement('span');
+                handle.className = 'snapshot-card-drag-handle';
+                handle.setAttribute('draggable', 'true');
+                handle.setAttribute('role', 'button');
+                handle.setAttribute('tabindex', '0');
+                handle.setAttribute('aria-grabbed', 'false');
+                handle.setAttribute('aria-label', 'Drag to reorder still');
+                handle.dataset.tooltip = 'Drag to reorder';
+                handle.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="9" cy="7" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15" cy="7" r="1.5" fill="currentColor"></circle>
+                        <circle cx="9" cy="12" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15" cy="12" r="1.5" fill="currentColor"></circle>
+                        <circle cx="9" cy="17" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15" cy="17" r="1.5" fill="currentColor"></circle>
+                    </svg>`;
+                handle.addEventListener('click', (ev) => ev.stopPropagation());
+                handle.addEventListener('dblclick', (ev) => ev.stopPropagation());
+
+                thumbEl.appendChild(handle);
+            }
+        }
 
         // Click to seek and enter edit mode
         card.addEventListener('click', () => this.openSnapshotInline(snapshot.id));

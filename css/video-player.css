@@ -1013,6 +1013,11 @@ canvas {
     color: var(--text-primary);
 }
 
+.action-btn-inline:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .action-btn-inline svg {
     width: 16px;
     height: 16px;

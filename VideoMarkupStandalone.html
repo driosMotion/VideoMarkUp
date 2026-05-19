@@ -787,7 +787,8 @@ body > .project-dropdown-menu {
     text-align: center;
 }
 
-.delete-all-btn {
+.delete-all-btn,
+.add-stills-btn {
     background: transparent;
     border: none;
     color: var(--text-muted);
@@ -802,9 +803,19 @@ body > .project-dropdown-menu {
     height: 28px;
 }
 
-.delete-all-btn svg {
+.delete-all-btn svg,
+.add-stills-btn svg {
     width: 16px;
     height: 16px;
+}
+
+.add-stills-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent-primary);
+}
+
+.add-stills-btn:active {
+    transform: scale(0.96);
 }
 
 .delete-all-btn:hover {
@@ -2251,6 +2262,11 @@ canvas {
     color: var(--text-primary);
 }
 
+.action-btn-inline:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .action-btn-inline svg {
     width: 16px;
     height: 16px;
@@ -2477,7 +2493,7 @@ canvas {
     color: var(--text-secondary);
     line-height: 1.45;
     display: block;
-    max-height: 5.5rem;
+    max-height: 8rem;
     overflow: hidden;
     word-break: break-word;
 }
@@ -2538,6 +2554,50 @@ canvas {
     position: relative;
     z-index: 2;
     pointer-events: none;
+}
+
+/* Image projects: reorder stills via drag handle (does not open snapshot on grip click) */
+.snapshot-card-drag-handle {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+    z-index: 3;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.snapshot-card-drag-handle svg {
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+}
+
+.snapshot-card-drag-handle:hover {
+    background: rgba(40, 40, 48, 0.95);
+    color: var(--accent-primary);
+    border-color: rgba(77, 124, 254, 0.35);
+}
+
+.snapshot-card-drag-handle:active {
+    cursor: grabbing;
+}
+
+.snapshot-card--dragging {
+    opacity: 0.65;
+    transform: none;
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent-primary);
 }
 
 .delete-progress {
@@ -3325,6 +3385,208 @@ canvas {
     justify-content: flex-end;
 }
 
+/* Merge projects modal */
+.merge-projects-dialog {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modal-scale-in 0.25s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.merge-projects-dialog .modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.merge-projects-dialog .modal-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.merge-projects-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    align-content: flex-start;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    gap: var(--spacing-sm);
+}
+
+.merge-projects-body > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.merge-projects-help {
+    margin: 0 0 var(--spacing-sm);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.merge-projects-order-label,
+.merge-projects-pick-label,
+.merge-projects-name-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.merge-projects-order-preview {
+    width: 100%;
+    min-height: 2.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: flex-start;
+    margin-bottom: var(--spacing-xs);
+}
+
+.merge-order-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+    font-size: 0.8125rem;
+    color: var(--text-primary);
+    max-width: 100%;
+}
+
+.merge-clear-order {
+    align-self: flex-start;
+    width: auto;
+    max-width: 100%;
+    margin-bottom: var(--spacing-md);
+    margin-top: 0;
+    font-size: 0.8125rem;
+    padding: 6px 12px;
+}
+
+.merge-projects-pick-list {
+    width: 100%;
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-xs);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.merge-projects-empty {
+    margin: 0;
+    padding: var(--spacing-md);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.merge-project-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+}
+
+.merge-project-row:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-color);
+}
+
+.merge-project-row.is-in-merge-order {
+    border-color: var(--accent-primary);
+    background: rgba(77, 124, 254, 0.08);
+}
+
+.merge-order-badge {
+    flex-shrink: 0;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+}
+
+.merge-project-row-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.merge-project-row-meta {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.merge-projects-name-input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    margin-top: var(--spacing-xs);
+}
+
+.merge-projects-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
 .btn {
     padding: 8px 16px;
     border-radius: var(--radius-md);
@@ -3645,6 +3907,15 @@ canvas {
                         </svg>
                         New Project
                     </button>
+                    <button class="dropdown-item dropdown-item-new" id="mergeProjectsMenuBtn" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="18" r="3"></circle>
+                            <circle cx="6" cy="9" r="3"></circle>
+                            <circle cx="18" cy="9" r="3"></circle>
+                            <path d="M8.5 11.5L12 15l3.5-3.5"></path>
+                        </svg>
+                        Merge Projects
+                    </button>
                 </div>
             </div>
             <div class="video-metadata" id="videoMetadata" hidden>
@@ -3794,6 +4065,13 @@ canvas {
                                 </svg>
                             </button>
                             <input type="file" id="referenceImageInputInline" accept="image/*" hidden>
+                            <button type="button" class="action-btn-inline" id="replaceStillAssetBtn" hidden data-tooltip="Replace the current still image. Clears markups on the image; tags and comment are kept.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <rect x="3" y="6" width="18" height="14" rx="2" ry="2"></rect>
+                                    <path d="M12 14V4M9 8l3-4 3 4"></path>
+                                </svg>
+                            </button>
+                            <input type="file" id="replaceStillAssetInput" accept="image/*" hidden>
                             <button class="action-btn-inline" id="undoBtnInline" data-tooltip="Undo the last drawing action. Removes the most recently added object.">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M3 7v6h6"></path>
@@ -4058,6 +4336,13 @@ canvas {
                 <h3>Snapshots</h3>
                 <div class="sidebar-header-right">
                     <span class="snapshot-count" id="snapshotCount">0</span>
+                    <input type="file" id="addStillsImagesInput" accept="image/*" multiple hidden aria-hidden="true">
+                    <button type="button" class="add-stills-btn" id="addStillsImagesBtn" hidden data-tooltip="Add still images from files">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
                     <button class="delete-all-btn" id="deleteAllSnapshotsBtn" data-tooltip="Delete all snapshots">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"></polyline>
@@ -4412,6 +4697,33 @@ canvas {
                     <summary class="faq-q">How do I edit the available tags?</summary>
                     <div class="faq-a">Click <span class="faq-chip">Tags</span> in the top bar to open the tag manager.</div>
                 </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge image projects (stills) -->
+    <div class="modal-overlay" id="mergeProjectsModal" hidden>
+        <div class="merge-projects-dialog">
+            <div class="modal-header">
+                <h3>Merge image projects</h3>
+                <button type="button" class="modal-close" id="mergeProjectsCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="merge-projects-body">
+                <p class="merge-projects-help">
+                    Click projects below in the order you want their stills combined. Click again to remove from the list.
+                    <strong>A new project</strong> is created with copies of all stills; your original projects are <strong>not modified or deleted</strong>.
+                </p>
+                <div class="merge-projects-order-label">Merge order</div>
+                <div class="merge-projects-order-preview" id="mergeProjectsOrderPreview"></div>
+                <button type="button" class="btn btn-secondary merge-clear-order" id="mergeProjectsClearOrderBtn">Clear order</button>
+                <div class="merge-projects-pick-label">Stills projects</div>
+                <div class="merge-projects-pick-list" id="mergeProjectsPickList"></div>
+                <label class="merge-projects-name-label" for="mergeProjectsNameInput">New project name (optional)</label>
+                <input type="text" id="mergeProjectsNameInput" class="merge-projects-name-input" placeholder="Merged stills (auto)" autocomplete="off">
+            </div>
+            <div class="modal-actions merge-projects-actions">
+                <button type="button" class="btn btn-secondary" id="mergeProjectsCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="mergeProjectsConfirmBtn" disabled>Merge</button>
             </div>
         </div>
     </div>
@@ -11551,6 +11863,8 @@ const Storage = {
             name: project.name || 'Untitled Project',
             videoFileName: project.videoFileName,
             videoData: project.videoData, // Blob
+            isImageProject: !!project.isImageProject,
+            folderId: project.folderId != null ? project.folderId : null,
             createdAt: new Date(),
             lastEditedAt: new Date()
         });
@@ -11733,6 +12047,85 @@ const Storage = {
                 lastEditedAt: new Date()
             });
         }
+    },
+
+    /**
+     * True if project record is an image-only (stills) project.
+     * @param {Object} project
+     * @returns {boolean}
+     */
+    isImageProjectRecord(project) {
+        if (!project) return false;
+        return !!(project.isImageProject || project.videoFileName === 'IMAGE_PROJECT');
+    },
+
+    /**
+     * Merge multiple image projects into a new project. Snapshots are **copied**;
+     * source projects and their snapshots are left unchanged.
+     * @param {number[]} orderedProjectIds - Project IDs in merge order
+     * @param {string} mergedName - Name for the new project
+     * @returns {Promise<number>} New project id
+     */
+    async mergeImageProjects(orderedProjectIds, mergedName) {
+        if (!orderedProjectIds || orderedProjectIds.length < 2) {
+            throw new Error('Select at least two image projects to merge.');
+        }
+
+        const name =
+            (mergedName && String(mergedName).trim()) ||
+            `Merged stills (${orderedProjectIds.length} projects)`;
+
+        const placeholderBlob = new Blob(['IMAGE_PROJECT'], { type: 'text/plain' });
+
+        return await db.transaction('rw', db.projects, db.snapshots, async () => {
+            const newProjectId = await db.projects.add({
+                name,
+                videoFileName: 'IMAGE_PROJECT',
+                videoData: placeholderBlob,
+                isImageProject: true,
+                folderId: null,
+                createdAt: new Date(),
+                lastEditedAt: new Date()
+            });
+
+            let timestamp = 0;
+
+            for (const projectId of orderedProjectIds) {
+                const proj = await db.projects.get(projectId);
+                if (!proj) continue;
+                if (!Storage.isImageProjectRecord(proj)) continue;
+
+                const snaps = await db.snapshots
+                    .where('projectId')
+                    .equals(projectId)
+                    .sortBy('timestamp');
+
+                for (const s of snaps) {
+                    const tags = s.tags && Array.isArray(s.tags)
+                        ? [...new Set(s.tags)]
+                        : [];
+
+                    await db.snapshots.add({
+                        projectId: newProjectId,
+                        timestamp: timestamp++,
+                        originalImage: s.originalImage,
+                        markedUpImage: s.markedUpImage || null,
+                        fabricData: s.fabricData || null,
+                        comment: s.comment || '',
+                        tags,
+                        tagHours: s.tagHours || {},
+                        createdAt: new Date()
+                    });
+                }
+            }
+
+            if (timestamp === 0) {
+                await db.projects.delete(newProjectId);
+                throw new Error('No stills found in the selected projects.');
+            }
+
+            return newProjectId;
+        });
     },
 
     /**
@@ -12177,6 +12570,16 @@ const VideoHandler = {
      * @param {File} file - Video file
      */
     async loadVideo(file) {
+        this.isImageProject = false;
+
+        const snapshotOverlay = document.getElementById('snapshotOverlay');
+        if (snapshotOverlay) {
+            snapshotOverlay.hidden = true;
+            snapshotOverlay.src = '';
+        }
+        this.video.hidden = false;
+        this.showPlaybackControls();
+
         const url = URL.createObjectURL(file);
         this.video.src = url;
         
@@ -12199,6 +12602,10 @@ const VideoHandler = {
         document.getElementById('videoPlayerContainer').hidden = false;
         document.getElementById('exportPdfBtn').disabled = false;
         document.getElementById('exportProjectBtn').disabled = false;
+
+        if (typeof SnapshotManager.syncImageProjectExtras === 'function') {
+            SnapshotManager.syncImageProjectExtras();
+        }
 
         App.showToast(`Loaded: ${file.name}`, 'success');
     },
@@ -12357,6 +12764,8 @@ const VideoHandler = {
 
             App.showToast(`✓ Created project with ${imageFiles.length} image(s)`, 'success');
 
+            SnapshotManager.syncImageProjectExtras();
+
         } catch (error) {
             console.error('Error creating image project:', error);
             App.showToast('Error creating image project', 'error');
@@ -12485,6 +12894,11 @@ const VideoHandler = {
             return;
         }
 
+        if (window.SnapshotManager) {
+            SnapshotManager.exitInlineEditMode();
+            SnapshotManager.clearList();
+        }
+
         this.currentProjectId = projectId;
         
         // Check if this is an image project
@@ -12547,6 +12961,7 @@ const VideoHandler = {
                 SnapshotManager.currentImageIndex = 0;
                 document.getElementById('emptyState').hidden = true;
             }
+
         } else {
             // Handle video project
             this.video.hidden = false;
@@ -12589,6 +13004,8 @@ const VideoHandler = {
                 this.video.addEventListener('loadedmetadata', loadSnapshots, { once: true });
             }
         }
+
+        SnapshotManager.syncImageProjectExtras();
     },
 
     /**
@@ -13276,6 +13693,193 @@ const SnapshotManager = {
     isCreatingSnapshot: false,
     _inlineTagsDelegationBound: false,
     currentImageIndex: 0, // For image-only projects
+    _reorderDraggingCard: null,
+    _snapshotOrderBeforeDrag: null,
+    _snapshotReorderDelegatesBound: false,
+
+    /**
+     * Insert point for reorder: card to insert BEFORE, or null to append dragging card at end.
+     * @param {HTMLElement} list
+     * @param {HTMLElement} draggingCard
+     * @param {number} mouseY
+     * @returns {HTMLElement|null}
+     */
+    getReorderInsertBeforeCard(list, draggingCard, mouseY) {
+        const siblings = [
+            ...list.querySelectorAll('.snapshot-card')
+        ].filter((c) => c !== draggingCard && c.parentNode === list);
+
+        if (siblings.length === 0) return null;
+
+        let closestBelow = /** @type {{ offset: number, el: HTMLElement } | null} */ (
+            null
+        );
+
+        siblings.forEach((child) => {
+            const box = child.getBoundingClientRect();
+            const offset = mouseY - box.top - box.height / 2;
+            if (offset < 0) {
+                if (!closestBelow || offset > closestBelow.offset) {
+                    closestBelow = { offset, el: child };
+                }
+            }
+        });
+
+        if (closestBelow) return closestBelow.el;
+
+        return null;
+    },
+
+    /** @param {HTMLElement} card */
+    updateCardTimestampDisplay(card, timestamp) {
+        const ts = Number(timestamp);
+        card.dataset.timestamp = String(ts);
+
+        const tcEl = card.querySelector('.snapshot-card-timecode');
+        if (tcEl && window.VideoHandler && typeof VideoHandler.formatTimecode === 'function') {
+            tcEl.textContent = VideoHandler.formatTimecode(ts);
+        }
+
+        const img = card.querySelector('.snapshot-card-thumbnail img');
+        if (
+            img &&
+            window.VideoHandler &&
+            typeof VideoHandler.formatTimecode === 'function'
+        ) {
+            img.alt = `Snapshot at ${VideoHandler.formatTimecode(ts)}`;
+        }
+    },
+
+    /**
+     * After drag-reorder on image projects, persist timestamp order as 0..n-1.
+     */
+    async persistSnapshotReorderFromDOM() {
+        if (
+            !VideoHandler?.isImageProject ||
+            !VideoHandler?.currentProjectId
+        ) {
+            return;
+        }
+
+        const list = document.getElementById('snapshotsList');
+        if (!list) return;
+
+        const cards = [...list.querySelectorAll('.snapshot-card')];
+        if (cards.length === 0) return;
+
+        const orderIds = cards.map((c) => Number(c.dataset.id));
+        if (
+            this._snapshotOrderBeforeDrag &&
+            JSON.stringify(orderIds) ===
+                JSON.stringify(this._snapshotOrderBeforeDrag)
+        ) {
+            this._snapshotOrderBeforeDrag = null;
+            return;
+        }
+        this._snapshotOrderBeforeDrag = null;
+
+        const updates = [];
+        let idx = 0;
+
+        for (const card of cards) {
+            const id = Number(card.dataset.id);
+            const newTs = idx++;
+            const snap = this.snapshots.find((s) => s.id === id);
+
+            this.updateCardTimestampDisplay(card, newTs);
+
+            if (snap && snap.timestamp !== newTs) {
+                snap.timestamp = newTs;
+                updates.push(Storage.updateSnapshot(id, { timestamp: newTs }));
+            }
+        }
+
+        if (updates.length > 0) {
+            await Promise.all(updates);
+        }
+
+        this.updateSnapshotNumbers();
+    },
+
+    /**
+     * Delegated drag/drop for snapshot card reorder (image projects only).
+     */
+    setupSnapshotImageReorderDelegates() {
+        const list = document.getElementById('snapshotsList');
+        if (!list || this._snapshotReorderDelegatesBound) return;
+        this._snapshotReorderDelegatesBound = true;
+
+        list.addEventListener(
+            'dragstart',
+            (e) => {
+                const handle = e.target.closest('.snapshot-card-drag-handle');
+                if (!handle || !VideoHandler?.isImageProject) return;
+
+                e.stopPropagation();
+
+                const card = handle.closest('.snapshot-card');
+                if (!card || !list.contains(card)) return;
+
+                this._reorderDraggingCard = card;
+                this._snapshotOrderBeforeDrag = [
+                    ...list.querySelectorAll('.snapshot-card')
+                ].map((c) => Number(c.dataset.id));
+
+                card.classList.add('snapshot-card--dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(card.dataset.id));
+            },
+            true
+        );
+
+        list.addEventListener('dragend', async (e) => {
+            const handle = e.target.closest('.snapshot-card-drag-handle');
+            if (!handle) return;
+
+            e.stopPropagation();
+
+            const card = handle.closest('.snapshot-card');
+            if (card) {
+                card.classList.remove('snapshot-card--dragging');
+            }
+
+            this._reorderDraggingCard = null;
+            try {
+                await this.persistSnapshotReorderFromDOM();
+            } catch (err) {
+                console.error('Snapshot reorder persist failed:', err);
+                App.showToast('Could not save new order', 'error');
+            }
+        });
+
+        list.addEventListener('dragover', (e) => {
+            if (!this._reorderDraggingCard || !VideoHandler?.isImageProject) {
+                return;
+            }
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            const dragging = this._reorderDraggingCard;
+            const insertBefore = this.getReorderInsertBeforeCard(
+                list,
+                dragging,
+                e.clientY
+            );
+
+            if (insertBefore == null) {
+                if (dragging.nextSibling !== null || dragging.parentNode !== list) {
+                    list.appendChild(dragging);
+                }
+            } else if (insertBefore !== dragging) {
+                list.insertBefore(dragging, insertBefore);
+            }
+        });
+
+        list.addEventListener('drop', (e) => {
+            if (!VideoHandler?.isImageProject) return;
+            e.preventDefault();
+        });
+    },
 
     /**
      * Reset ONLY the tags/hours UI (does not clear comment)
@@ -13319,9 +13923,326 @@ const SnapshotManager = {
         console.log('[DEBUG-INIT] SnapshotManager.init() called at', new Date().toISOString());
         // #endregion
         this.setupEventListeners();
+        this.initAddStillsImport();
+        this.initReplaceStillAsset();
+        this.setupSnapshotImageReorderDelegates();
         // #region agent log
         console.log('[DEBUG-INIT] SnapshotManager.init() completed');
         // #endregion
+    },
+
+    /**
+     * Refresh UI for image-only project controls (sidebar + toolbar).
+     */
+    syncImageProjectExtras() {
+        this.syncAddStillsImportButton();
+        this.syncReplaceStillAssetButton();
+    },
+
+    /**
+     * Show “add stills” only for image-only projects with an open project.
+     */
+    syncAddStillsImportButton() {
+        const btn = document.getElementById('addStillsImagesBtn');
+        if (!btn) return;
+        const show = !!(
+            VideoHandler &&
+            VideoHandler.isImageProject &&
+            VideoHandler.currentProjectId
+        );
+        btn.hidden = !show;
+    },
+
+    /**
+     * Tools bar: replace underlying still (image projects only).
+     */
+    syncReplaceStillAssetButton() {
+        const btn = document.getElementById('replaceStillAssetBtn');
+        if (!btn) return;
+        const eligible = !!(
+            VideoHandler?.isImageProject &&
+            VideoHandler?.currentProjectId &&
+            this.snapshots?.length > 0
+        );
+        btn.hidden = !eligible;
+        if (eligible) {
+            btn.disabled = !this.getTargetSnapshotIdForReplace();
+        } else {
+            btn.disabled = false;
+        }
+    },
+
+    /**
+     * Snapshot to use for “replace still” when in image mode.
+     * @returns {number|null}
+     */
+    getTargetSnapshotIdForReplace() {
+        if (!VideoHandler?.isImageProject || !this.snapshots?.length) {
+            return null;
+        }
+        if (this.currentSnapshotId) {
+            return this.currentSnapshotId;
+        }
+        if (window.DrawingTool?.activeSnapshotId) {
+            return DrawingTool.activeSnapshotId;
+        }
+
+        const sorted = [...this.snapshots].sort(
+            (a, b) => a.timestamp - b.timestamp
+        );
+        if (sorted.length === 1) {
+            return sorted[0].id;
+        }
+
+        const o = document.getElementById('snapshotOverlay');
+        if (o && !o.hidden && (o.getAttribute('src') || o.src)) {
+            return sorted[0].id;
+        }
+        return null;
+    },
+
+    initReplaceStillAsset() {
+        const btn = document.getElementById('replaceStillAssetBtn');
+        const input = document.getElementById('replaceStillAssetInput');
+        if (!btn || !input) return;
+
+        btn.addEventListener('click', () => {
+            if (!VideoHandler?.isImageProject) {
+                App.showToast(
+                    'Replace still is only available in image projects.',
+                    'info'
+                );
+                return;
+            }
+            this.syncReplaceStillAssetButton();
+            if (!this.getTargetSnapshotIdForReplace()) {
+                App.showToast(
+                    'Select a snapshot first (click a card in the list).',
+                    'warning'
+                );
+                return;
+            }
+            input.value = '';
+            input.click();
+        });
+
+        input.addEventListener('change', async (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            await this.replaceStillAssetFromFile(file);
+            input.value = '';
+        });
+
+        this.syncReplaceStillAssetButton();
+    },
+
+    /**
+     * Replace stored image for target snapshot; clears fabric/markedUpImage.
+     * @param {File} file
+     */
+    async replaceStillAssetFromFile(file) {
+        if (!file?.type?.startsWith('image/')) {
+            App.showToast('Choose an image file', 'warning');
+            return;
+        }
+        if (!VideoHandler?.isImageProject || !VideoHandler?.currentProjectId) {
+            App.showToast('Open an image project first.', 'warning');
+            return;
+        }
+
+        const id = this.getTargetSnapshotIdForReplace();
+        if (!id) {
+            App.showToast(
+                'Select a snapshot first (click a card in the list).',
+                'warning'
+            );
+            return;
+        }
+
+        if (
+            !confirm(
+                'Replace this still? Markups drawn on the image will be removed. Tags and comment are kept.'
+            )
+        ) {
+            return;
+        }
+
+        if (DrawingTool.autoSaveTimeout) {
+            clearTimeout(DrawingTool.autoSaveTimeout);
+            DrawingTool.autoSaveTimeout = null;
+        }
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+            this.autoSaveTimeout = null;
+        }
+
+        try {
+            const dataUrl = await VideoHandler.readImageAsDataURL(file);
+
+            await Storage.updateSnapshot(id, {
+                originalImage: dataUrl,
+                fabricData: null,
+                markedUpImage: null
+            });
+
+            const snapshot = await Storage.getSnapshot(id);
+            const ix = this.snapshots.findIndex((s) => s.id === id);
+            if (ix >= 0) {
+                this.snapshots[ix] = snapshot;
+            }
+
+            const card = document.querySelector(
+                `.snapshot-card[data-id="${id}"]`
+            );
+            if (card && snapshot) {
+                card.classList.remove('has-markup');
+                const img = card.querySelector('.snapshot-card-thumbnail img');
+                const thumb = snapshot.markedUpImage || snapshot.originalImage;
+                if (img && thumb) {
+                    img.src = thumb;
+                }
+            }
+
+            const editingThis =
+                this.currentSnapshotId === id ||
+                DrawingTool.activeSnapshotId === id;
+
+            if (editingThis) {
+                await this.enterInlineEditMode(id, dataUrl, null, true);
+            } else if (VideoHandler.isImageProject) {
+                const o = document.getElementById('snapshotOverlay');
+                if (o && !o.hidden) {
+                    const sorted = [...this.snapshots].sort(
+                        (a, b) => a.timestamp - b.timestamp
+                    );
+                    if (sorted[0] && sorted[0].id === id) {
+                        o.src = dataUrl;
+                    }
+                }
+            }
+
+            this.syncReplaceStillAssetButton();
+            App.showToast('Still image replaced', 'success');
+        } catch (err) {
+            console.error('replaceStillAssetFromFile:', err);
+            App.showToast('Could not replace still image', 'error');
+        }
+    },
+
+    /**
+     * Sidebar: add more image files as snapshots (image projects only).
+     */
+    initAddStillsImport() {
+        const btn = document.getElementById('addStillsImagesBtn');
+        const input = document.getElementById('addStillsImagesInput');
+        if (!btn || !input) return;
+
+        btn.addEventListener('click', () => {
+            if (!VideoHandler?.isImageProject) {
+                App.showToast(
+                    'Add stills is only available in image projects.',
+                    'info'
+                );
+                return;
+            }
+            if (!VideoHandler?.currentProjectId) {
+                App.showToast('No project loaded', 'warning');
+                return;
+            }
+            input.value = '';
+            input.click();
+        });
+
+        input.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files || []).filter((f) =>
+                f.type.startsWith('image/')
+            );
+            if (files.length === 0) return;
+            await this.appendStillsFromImageFiles(files);
+            input.value = '';
+        });
+
+        this.syncImageProjectExtras();
+    },
+
+    /**
+     * Append still images from the file picker after the highest snapshot order.
+     * @param {File[]} files - Image File objects
+     */
+    async appendStillsFromImageFiles(files) {
+        if (
+            !VideoHandler?.currentProjectId ||
+            !VideoHandler?.isImageProject
+        ) {
+            App.showToast('Open an image project to add stills.', 'warning');
+            return;
+        }
+
+        const projectId = VideoHandler.currentProjectId;
+        const maxTs = this.snapshots.reduce((max, s) => {
+            const t = Number(s.timestamp);
+            return Number.isFinite(t) ? Math.max(max, t) : max;
+        }, -1);
+
+        App.showToast(`Adding ${files.length} image(s)...`, 'info');
+
+        let added = 0;
+        let lastSnapshot = null;
+        let nextTs = maxTs + 1;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            try {
+                const dataUrl = await VideoHandler.readImageAsDataURL(file);
+                const ts = nextTs++;
+                const id = await this.createSnapshotFromImage(
+                    projectId,
+                    dataUrl,
+                    file.name,
+                    ts
+                );
+                const snapshot = await Storage.getSnapshot(id);
+                if (
+                    snapshot &&
+                    !this.snapshots.some((x) => x.id === snapshot.id)
+                ) {
+                    this.snapshots.push(snapshot);
+                }
+                if (snapshot) {
+                    this.addSnapshotToList(snapshot);
+                    added++;
+                    lastSnapshot = snapshot;
+                }
+            } catch (err) {
+                console.error(`Error adding image ${file.name}:`, err);
+            }
+        }
+
+        this.sortSnapshotsByTimecode();
+        this.updateSnapshotCount();
+
+        const emptyState = document.getElementById('emptyState');
+        if (emptyState) {
+            emptyState.hidden = this.snapshots.length > 0;
+        }
+
+        if (lastSnapshot) {
+            const overlay = document.getElementById('snapshotOverlay');
+            if (overlay) {
+                overlay.src =
+                    lastSnapshot.originalImage || lastSnapshot.imageData;
+            }
+            await this.enterInlineEditMode(lastSnapshot.id);
+        }
+
+        App.showToast(
+            added === files.length
+                ? `Added ${added} still(s)`
+                : `Added ${added} of ${files.length} image(s)`,
+            added > 0 ? 'success' : 'warning'
+        );
+
+        this.syncImageProjectExtras();
     },
 
     /**
@@ -13903,6 +14824,7 @@ const SnapshotManager = {
 
         // Initialize drawing tool with this snapshot
         DrawingTool.enterEditMode(snapshotId, imageData, fabricData);
+        this.syncImageProjectExtras();
     },
 
     /**
@@ -14220,6 +15142,7 @@ const SnapshotManager = {
         this.currentSnapshotId = null;
         this.quickCommentSnapshotId = null;
         DrawingTool.exitEditMode();
+        this.syncImageProjectExtras();
     },
 
     /**
@@ -14457,6 +15380,34 @@ const SnapshotManager = {
         
         deleteBtn.addEventListener('touchend', cancelDelete);
         deleteBtn.addEventListener('touchcancel', cancelDelete);
+
+        // Image-only projects: draggable grip so stills can be reordered without stealing card clicks
+        if (window.VideoHandler && VideoHandler.isImageProject) {
+            const thumbEl = card.querySelector('.snapshot-card-thumbnail');
+            if (thumbEl && !thumbEl.querySelector('.snapshot-card-drag-handle')) {
+                const handle = document.createElement('span');
+                handle.className = 'snapshot-card-drag-handle';
+                handle.setAttribute('draggable', 'true');
+                handle.setAttribute('role', 'button');
+                handle.setAttribute('tabindex', '0');
+                handle.setAttribute('aria-grabbed', 'false');
+                handle.setAttribute('aria-label', 'Drag to reorder still');
+                handle.dataset.tooltip = 'Drag to reorder';
+                handle.innerHTML = `
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="9" cy="7" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15" cy="7" r="1.5" fill="currentColor"></circle>
+                        <circle cx="9" cy="12" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15" cy="12" r="1.5" fill="currentColor"></circle>
+                        <circle cx="9" cy="17" r="1.5" fill="currentColor"></circle>
+                        <circle cx="15" cy="17" r="1.5" fill="currentColor"></circle>
+                    </svg>`;
+                handle.addEventListener('click', (ev) => ev.stopPropagation());
+                handle.addEventListener('dblclick', (ev) => ev.stopPropagation());
+
+                thumbEl.appendChild(handle);
+            }
+        }
 
         // Click to seek and enter edit mode
         card.addEventListener('click', () => this.openSnapshotInline(snapshot.id));
@@ -17007,14 +17958,132 @@ const PDFExporter = {
         return t.trimEnd();
     },
 
-    renderRichTextComment(doc, htmlContent, x, y, maxWidth, layout) {
-        const safeHtml = this.sanitizeCommentHtmlForPdfImport(
-            this.normalizeCommentHtmlForPdf(htmlContent)
-        );
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = safeHtml;
+    /**
+     * Escape text for regenerated comment HTML used before PDF/layout.
+     * @param {string} str
+     * @returns {string}
+     */
+    escapeHtmlForExport(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    },
 
-        const textSegments = this.extractTextSegments(tempDiv);
+    /**
+     * Strip unsafe chars from color strings for inline style attributes.
+     * @param {string} color
+     * @returns {string}
+     */
+    sanitizeColorForExportStyle(color) {
+        const c = String(color || '#f0f0f2').trim();
+        return c.replace(/["'<>;]/g, '');
+    },
+
+    /**
+     * Remove redundant consecutive paragraph breaks / leading-trailing breaks
+     * so export layout stays predictable.
+     * @param {Array} segments
+     * @returns {Array}
+     */
+    collapseRedundantExportBreaks(segments) {
+        const out = [];
+        let lastWasPara = false;
+
+        segments.forEach((seg) => {
+            if (seg.type === 'break') {
+                if (seg.variant === 'para') {
+                    if (lastWasPara) return;
+                    lastWasPara = true;
+                    out.push(seg);
+                } else {
+                    lastWasPara = false;
+                    out.push(seg);
+                }
+                return;
+            }
+            lastWasPara = false;
+            const normalized = this.normalizeWhitespaceForPdf(seg.text);
+            if (!normalized) return;
+            out.push({ text: normalized, color: seg.color });
+        });
+
+        while (out.length && out[0].type === 'break') {
+            out.shift();
+        }
+        while (out.length && out[out.length - 1].type === 'break') {
+            out.pop();
+        }
+        return out;
+    },
+
+    /**
+     * Rebuild minimal canónico HTML para export (PDF): un único bloque div,
+     * párrafos con &lt;br data-pdf-break="para"&gt;, saltos blandos con &lt;br&gt;.
+     * Elimina nesting raro del editor y hace estable extractTextSegments.
+     * @param {Array} segments
+     * @returns {string}
+     */
+    segmentsToCanonicalCommentHtml(segments) {
+        const colorSafe = (c) =>
+            this.sanitizeColorForExportStyle(c || '#f0f0f2');
+
+        let html = '<div data-pdf-export-root="1">';
+
+        segments.forEach((seg) => {
+            if (seg.type === 'break') {
+                if (seg.variant === 'para') {
+                    html += '<br data-pdf-break="para" />';
+                } else {
+                    html += '<br>';
+                }
+                return;
+            }
+
+            const lines = String(seg.text).split(/\r\n|\r|\n/);
+            lines.forEach((rawLine, li) => {
+                if (li > 0) {
+                    html += '<br>';
+                }
+                const line = this.normalizeWhitespaceForPdf(rawLine);
+                if (!line) return;
+                const c = colorSafe(seg.color);
+                html += `<span style="color:${c}">${this.escapeHtmlForExport(line)}</span>`;
+            });
+        });
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Comment HTML → estable para export PDF (forma coherente, sin divs fantasma).
+     * @param {string} html
+     * @returns {Array} segmentos ya listos para renderRichTextComment
+     */
+    prepareCommentSegmentsForExport(html) {
+        const safeHtml = this.sanitizeCommentHtmlForPdfImport(
+            this.normalizeCommentHtmlForPdf(html)
+        );
+        const parseDiv = document.createElement('div');
+        parseDiv.innerHTML = safeHtml;
+
+        let raw = this.extractTextSegments(parseDiv);
+        raw = this.collapseRedundantExportBreaks(raw);
+
+        if (raw.length === 0) {
+            return [];
+        }
+
+        const canonical = this.segmentsToCanonicalCommentHtml(raw);
+        const wrap = document.createElement('div');
+        wrap.innerHTML = canonical;
+        return this.extractTextSegments(wrap);
+    },
+
+    renderRichTextComment(doc, htmlContent, x, y, maxWidth, layout) {
+        const textSegments = this.prepareCommentSegmentsForExport(htmlContent || '');
 
         if (textSegments.length === 0) {
             doc.setTextColor(240, 240, 242);
@@ -17202,9 +18271,11 @@ const PDFExporter = {
             } else if (node.nodeType === Node.ELEMENT_NODE) {
                 const tag = node.tagName;
                 if (tag === 'BR') {
+                    const isParaBreak =
+                        node.getAttribute('data-pdf-break') === 'para';
                     segments.push({
                         type: 'break',
-                        variant: 'soft'
+                        variant: isParaBreak ? 'para' : 'soft'
                     });
                     return;
                 }
@@ -17238,8 +18309,16 @@ const PDFExporter = {
                         last &&
                         last.nodeType === Node.ELEMENT_NODE &&
                         last.tagName === 'BR';
-                    const skipRootDivSuffix = isRootWrapper && tag === 'DIV';
-                    if (!lastIsBr && !skipRootDivSuffix) {
+                    const isCanonicalExportDiv =
+                        tag === 'DIV' &&
+                        node.getAttribute('data-pdf-export-root') === '1';
+                    const skipRootDivSuffix =
+                        isRootWrapper && tag === 'DIV';
+                    if (
+                        !lastIsBr &&
+                        !skipRootDivSuffix &&
+                        !isCanonicalExportDiv
+                    ) {
                         segments.push({
                             type: 'break',
                             variant: 'para'
@@ -17764,6 +18843,10 @@ const ProjectManager = {
     isOpen: false,
     expandedFolders: new Set(), // Track which folders are expanded
     draggedProjectId: null, // Track currently dragged project
+    /** @type {number[]} Ordered project IDs selected for merge (image projects only) */
+    mergeProjectOrder: [],
+    /** @type {Record<number, { name: string }>} */
+    _mergeProjectMeta: {},
 
     /**
      * Initialize project manager
@@ -17825,10 +18908,26 @@ const ProjectManager = {
             });
         }
 
+        const mergeProjectsMenuBtn = document.getElementById('mergeProjectsMenuBtn');
+        if (mergeProjectsMenuBtn) {
+            mergeProjectsMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openMergeProjectsModal();
+            });
+        }
+        this.setupMergeProjectsModalListeners();
+
         // Close on Escape
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isOpen) {
-                this.closeDropdown();
+            if (e.key === 'Escape') {
+                const mergeModal = document.getElementById('mergeProjectsModal');
+                if (mergeModal && !mergeModal.hidden) {
+                    this.hideMergeProjectsModal();
+                    return;
+                }
+                if (this.isOpen) {
+                    this.closeDropdown();
+                }
             }
         });
         
@@ -18410,6 +19509,10 @@ const ProjectManager = {
         
         // Reset current project
         VideoHandler.currentProjectId = null;
+        VideoHandler.isImageProject = false;
+        if (typeof SnapshotManager.syncImageProjectExtras === 'function') {
+            SnapshotManager.syncImageProjectExtras();
+        }
         
         this.closeDropdown();
     },
@@ -18461,6 +19564,192 @@ const ProjectManager = {
         // Refresh list
         this.loadProjectList();
         App.showToast('Project deleted', 'success');
+    },
+
+    /**
+     * Merge projects modal: wire buttons and overlay.
+     */
+    setupMergeProjectsModalListeners() {
+        const modal = document.getElementById('mergeProjectsModal');
+        const cancelBtn = document.getElementById('mergeProjectsCancelBtn');
+        const closeBtn = document.getElementById('mergeProjectsCloseBtn');
+        const confirmBtn = document.getElementById('mergeProjectsConfirmBtn');
+        const clearBtn = document.getElementById('mergeProjectsClearOrderBtn');
+
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideMergeProjectsModal();
+                }
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.hideMergeProjectsModal());
+        }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideMergeProjectsModal());
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.mergeProjectOrder = [];
+                this.renderMergeProjectsUI();
+            });
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => this.confirmMergeProjects());
+        }
+    },
+
+    /**
+     * Open merge dialog (image / stills projects only in the picker).
+     */
+    async openMergeProjectsModal() {
+        this.closeDropdown();
+        this.mergeProjectOrder = [];
+        this._mergeProjectMeta = {};
+
+        const listEl = document.getElementById('mergeProjectsPickList');
+        const nameInput = document.getElementById('mergeProjectsNameInput');
+        const modal = document.getElementById('mergeProjectsModal');
+        if (!listEl || !modal) return;
+
+        if (nameInput) {
+            nameInput.value = '';
+        }
+
+        const all = await Storage.getAllProjects();
+        const imageProjects = all.filter((p) =>
+            Storage.isImageProjectRecord(p)
+        );
+
+        imageProjects.forEach((p) => {
+            this._mergeProjectMeta[p.id] = { name: p.name };
+        });
+
+        if (imageProjects.length === 0) {
+            listEl.innerHTML =
+                '<p class="merge-projects-empty">No image (stills) projects yet. Create a project from still images first.</p>';
+        } else {
+            listEl.innerHTML = '';
+            for (const p of imageProjects) {
+                const snaps = await Storage.getSnapshots(p.id);
+                const count = snaps.length;
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'merge-project-row';
+                row.dataset.projectId = String(p.id);
+                row.innerHTML = `
+                    <span class="merge-order-badge" hidden></span>
+                    <span class="merge-project-row-name">${this.escapeHtml(p.name)}</span>
+                    <span class="merge-project-row-meta">${count} still${count !== 1 ? 's' : ''}</span>
+                `;
+                row.addEventListener('click', () =>
+                    this.toggleMergeProjectSelection(Number(p.id))
+                );
+                listEl.appendChild(row);
+            }
+        }
+
+        this.renderMergeProjectsUI();
+        modal.hidden = false;
+    },
+
+    hideMergeProjectsModal() {
+        const modal = document.getElementById('mergeProjectsModal');
+        if (modal) {
+            modal.hidden = true;
+        }
+        this.mergeProjectOrder = [];
+    },
+
+    /**
+     * Add or remove a project from the merge order (toggle).
+     * @param {number} projectId
+     */
+    toggleMergeProjectSelection(projectId) {
+        const idx = this.mergeProjectOrder.indexOf(projectId);
+        if (idx === -1) {
+            this.mergeProjectOrder.push(projectId);
+        } else {
+            this.mergeProjectOrder.splice(idx, 1);
+        }
+        this.renderMergeProjectsUI();
+    },
+
+    renderMergeProjectsUI() {
+        const preview = document.getElementById('mergeProjectsOrderPreview');
+        const confirmBtn = document.getElementById('mergeProjectsConfirmBtn');
+
+        document.querySelectorAll('.merge-project-row').forEach((row) => {
+            const id = Number(row.dataset.projectId);
+            const ord = this.mergeProjectOrder.indexOf(id);
+            row.classList.toggle('is-in-merge-order', ord !== -1);
+            const badge = row.querySelector('.merge-order-badge');
+            if (badge) {
+                if (ord === -1) {
+                    badge.hidden = true;
+                    badge.textContent = '';
+                } else {
+                    badge.hidden = false;
+                    badge.textContent = String(ord + 1);
+                }
+            }
+        });
+
+        if (preview) {
+            if (this.mergeProjectOrder.length === 0) {
+                preview.innerHTML =
+                    '<span class="merge-order-chip" style="opacity:0.6">No project selected yet.</span>';
+            } else {
+                preview.innerHTML = this.mergeProjectOrder
+                    .map((id, i) => {
+                        const meta = this._mergeProjectMeta[id];
+                        const label = meta
+                            ? meta.name
+                            : `Project ${id}`;
+                        return `<span class="merge-order-chip">${i + 1}. ${this.escapeHtml(label)}</span>`;
+                    })
+                    .join('');
+            }
+        }
+
+        if (confirmBtn) {
+            confirmBtn.disabled = this.mergeProjectOrder.length < 2;
+        }
+    },
+
+    /**
+     * Run merge and open the new project.
+     */
+    async confirmMergeProjects() {
+        if (this.mergeProjectOrder.length < 2) {
+            App.showToast('Select at least two projects to merge', 'warning');
+            return;
+        }
+
+        const nameInput = document.getElementById('mergeProjectsNameInput');
+        const customName = nameInput ? nameInput.value.trim() : '';
+
+        try {
+            App.showToast('Merging projects…', 'info');
+            const newId = await Storage.mergeImageProjects(
+                [...this.mergeProjectOrder],
+                customName
+            );
+            this.hideMergeProjectsModal();
+            await this.loadProjectList();
+            await VideoHandler.loadProject(newId);
+            App.showToast(
+                'Merged into a new project. Your original projects were not changed.',
+                'success'
+            );
+        } catch (err) {
+            console.error('Merge projects failed:', err);
+            App.showToast(
+                err.message || 'Could not merge projects',
+                'error'
+            );
+        }
     },
 
     /**

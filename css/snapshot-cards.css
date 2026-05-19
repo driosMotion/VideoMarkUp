@@ -113,7 +113,7 @@
     color: var(--text-secondary);
     line-height: 1.45;
     display: block;
-    max-height: 5.5rem;
+    max-height: 8rem;
     overflow: hidden;
     word-break: break-word;
 }
@@ -174,6 +174,50 @@
     position: relative;
     z-index: 2;
     pointer-events: none;
+}
+
+/* Image projects: reorder stills via drag handle (does not open snapshot on grip click) */
+.snapshot-card-drag-handle {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+    z-index: 3;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--radius-sm);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.snapshot-card-drag-handle svg {
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+}
+
+.snapshot-card-drag-handle:hover {
+    background: rgba(40, 40, 48, 0.95);
+    color: var(--accent-primary);
+    border-color: rgba(77, 124, 254, 0.35);
+}
+
+.snapshot-card-drag-handle:active {
+    cursor: grabbing;
+}
+
+.snapshot-card--dragging {
+    opacity: 0.65;
+    transform: none;
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent-primary);
 }
 
 .delete-progress {
@@ -959,6 +1003,208 @@
     padding: var(--spacing-lg);
     border-top: 1px solid var(--border-color);
     justify-content: flex-end;
+}
+
+/* Merge projects modal */
+.merge-projects-dialog {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modal-scale-in 0.25s ease;
+    box-shadow: var(--shadow-lg);
+}
+
+.merge-projects-dialog .modal-header {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.merge-projects-dialog .modal-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.merge-projects-body {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    align-content: flex-start;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+    gap: var(--spacing-sm);
+}
+
+.merge-projects-body > * {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.merge-projects-help {
+    margin: 0 0 var(--spacing-sm);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.merge-projects-order-label,
+.merge-projects-pick-label,
+.merge-projects-name-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: var(--spacing-xs);
+}
+
+.merge-projects-order-preview {
+    width: 100%;
+    min-height: 2.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    align-items: flex-start;
+    margin-bottom: var(--spacing-xs);
+}
+
+.merge-order-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    background: var(--bg-hover);
+    border: 1px solid var(--border-color);
+    font-size: 0.8125rem;
+    color: var(--text-primary);
+    max-width: 100%;
+}
+
+.merge-clear-order {
+    align-self: flex-start;
+    width: auto;
+    max-width: 100%;
+    margin-bottom: var(--spacing-md);
+    margin-top: 0;
+    font-size: 0.8125rem;
+    padding: 6px 12px;
+}
+
+.merge-projects-pick-list {
+    width: 100%;
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-lg);
+    padding: var(--spacing-xs);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.merge-projects-empty {
+    margin: 0;
+    padding: var(--spacing-md);
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.merge-project-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+}
+
+.merge-project-row:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-color);
+}
+
+.merge-project-row.is-in-merge-order {
+    border-color: var(--accent-primary);
+    background: rgba(77, 124, 254, 0.08);
+}
+
+.merge-order-badge {
+    flex-shrink: 0;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent-primary);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+}
+
+.merge-project-row-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.merge-project-row-meta {
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.merge-projects-name-input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    margin-top: var(--spacing-xs);
+}
+
+.merge-projects-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    justify-content: flex-end;
+    flex-shrink: 0;
 }
 
 .btn {

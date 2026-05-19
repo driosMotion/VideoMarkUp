@@ -405,14 +405,132 @@ const PDFExporter = {
         return t.trimEnd();
     },
 
-    renderRichTextComment(doc, htmlContent, x, y, maxWidth, layout) {
-        const safeHtml = this.sanitizeCommentHtmlForPdfImport(
-            this.normalizeCommentHtmlForPdf(htmlContent)
-        );
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = safeHtml;
+    /**
+     * Escape text for regenerated comment HTML used before PDF/layout.
+     * @param {string} str
+     * @returns {string}
+     */
+    escapeHtmlForExport(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    },
 
-        const textSegments = this.extractTextSegments(tempDiv);
+    /**
+     * Strip unsafe chars from color strings for inline style attributes.
+     * @param {string} color
+     * @returns {string}
+     */
+    sanitizeColorForExportStyle(color) {
+        const c = String(color || '#f0f0f2').trim();
+        return c.replace(/["'<>;]/g, '');
+    },
+
+    /**
+     * Remove redundant consecutive paragraph breaks / leading-trailing breaks
+     * so export layout stays predictable.
+     * @param {Array} segments
+     * @returns {Array}
+     */
+    collapseRedundantExportBreaks(segments) {
+        const out = [];
+        let lastWasPara = false;
+
+        segments.forEach((seg) => {
+            if (seg.type === 'break') {
+                if (seg.variant === 'para') {
+                    if (lastWasPara) return;
+                    lastWasPara = true;
+                    out.push(seg);
+                } else {
+                    lastWasPara = false;
+                    out.push(seg);
+                }
+                return;
+            }
+            lastWasPara = false;
+            const normalized = this.normalizeWhitespaceForPdf(seg.text);
+            if (!normalized) return;
+            out.push({ text: normalized, color: seg.color });
+        });
+
+        while (out.length && out[0].type === 'break') {
+            out.shift();
+        }
+        while (out.length && out[out.length - 1].type === 'break') {
+            out.pop();
+        }
+        return out;
+    },
+
+    /**
+     * Rebuild minimal canónico HTML para export (PDF): un único bloque div,
+     * párrafos con &lt;br data-pdf-break="para"&gt;, saltos blandos con &lt;br&gt;.
+     * Elimina nesting raro del editor y hace estable extractTextSegments.
+     * @param {Array} segments
+     * @returns {string}
+     */
+    segmentsToCanonicalCommentHtml(segments) {
+        const colorSafe = (c) =>
+            this.sanitizeColorForExportStyle(c || '#f0f0f2');
+
+        let html = '<div data-pdf-export-root="1">';
+
+        segments.forEach((seg) => {
+            if (seg.type === 'break') {
+                if (seg.variant === 'para') {
+                    html += '<br data-pdf-break="para" />';
+                } else {
+                    html += '<br>';
+                }
+                return;
+            }
+
+            const lines = String(seg.text).split(/\r\n|\r|\n/);
+            lines.forEach((rawLine, li) => {
+                if (li > 0) {
+                    html += '<br>';
+                }
+                const line = this.normalizeWhitespaceForPdf(rawLine);
+                if (!line) return;
+                const c = colorSafe(seg.color);
+                html += `<span style="color:${c}">${this.escapeHtmlForExport(line)}</span>`;
+            });
+        });
+
+        html += '</div>';
+        return html;
+    },
+
+    /**
+     * Comment HTML → estable para export PDF (forma coherente, sin divs fantasma).
+     * @param {string} html
+     * @returns {Array} segmentos ya listos para renderRichTextComment
+     */
+    prepareCommentSegmentsForExport(html) {
+        const safeHtml = this.sanitizeCommentHtmlForPdfImport(
+            this.normalizeCommentHtmlForPdf(html)
+        );
+        const parseDiv = document.createElement('div');
+        parseDiv.innerHTML = safeHtml;
+
+        let raw = this.extractTextSegments(parseDiv);
+        raw = this.collapseRedundantExportBreaks(raw);
+
+        if (raw.length === 0) {
+            return [];
+        }
+
+        const canonical = this.segmentsToCanonicalCommentHtml(raw);
+        const wrap = document.createElement('div');
+        wrap.innerHTML = canonical;
+        return this.extractTextSegments(wrap);
+    },
+
+    renderRichTextComment(doc, htmlContent, x, y, maxWidth, layout) {
+        const textSegments = this.prepareCommentSegmentsForExport(htmlContent || '');
 
         if (textSegments.length === 0) {
             doc.setTextColor(240, 240, 242);
@@ -600,9 +718,11 @@ const PDFExporter = {
             } else if (node.nodeType === Node.ELEMENT_NODE) {
                 const tag = node.tagName;
                 if (tag === 'BR') {
+                    const isParaBreak =
+                        node.getAttribute('data-pdf-break') === 'para';
                     segments.push({
                         type: 'break',
-                        variant: 'soft'
+                        variant: isParaBreak ? 'para' : 'soft'
                     });
                     return;
                 }
@@ -636,8 +756,16 @@ const PDFExporter = {
                         last &&
                         last.nodeType === Node.ELEMENT_NODE &&
                         last.tagName === 'BR';
-                    const skipRootDivSuffix = isRootWrapper && tag === 'DIV';
-                    if (!lastIsBr && !skipRootDivSuffix) {
+                    const isCanonicalExportDiv =
+                        tag === 'DIV' &&
+                        node.getAttribute('data-pdf-export-root') === '1';
+                    const skipRootDivSuffix =
+                        isRootWrapper && tag === 'DIV';
+                    if (
+                        !lastIsBr &&
+                        !skipRootDivSuffix &&
+                        !isCanonicalExportDiv
+                    ) {
                         segments.push({
                             type: 'break',
                             variant: 'para'

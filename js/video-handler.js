@@ -284,6 +284,16 @@ const VideoHandler = {
      * @param {File} file - Video file
      */
     async loadVideo(file) {
+        this.isImageProject = false;
+
+        const snapshotOverlay = document.getElementById('snapshotOverlay');
+        if (snapshotOverlay) {
+            snapshotOverlay.hidden = true;
+            snapshotOverlay.src = '';
+        }
+        this.video.hidden = false;
+        this.showPlaybackControls();
+
         const url = URL.createObjectURL(file);
         this.video.src = url;
         
@@ -306,6 +316,10 @@ const VideoHandler = {
         document.getElementById('videoPlayerContainer').hidden = false;
         document.getElementById('exportPdfBtn').disabled = false;
         document.getElementById('exportProjectBtn').disabled = false;
+
+        if (typeof SnapshotManager.syncImageProjectExtras === 'function') {
+            SnapshotManager.syncImageProjectExtras();
+        }
 
         App.showToast(`Loaded: ${file.name}`, 'success');
     },
@@ -464,6 +478,8 @@ const VideoHandler = {
 
             App.showToast(`✓ Created project with ${imageFiles.length} image(s)`, 'success');
 
+            SnapshotManager.syncImageProjectExtras();
+
         } catch (error) {
             console.error('Error creating image project:', error);
             App.showToast('Error creating image project', 'error');
@@ -592,6 +608,11 @@ const VideoHandler = {
             return;
         }
 
+        if (window.SnapshotManager) {
+            SnapshotManager.exitInlineEditMode();
+            SnapshotManager.clearList();
+        }
+
         this.currentProjectId = projectId;
         
         // Check if this is an image project
@@ -654,6 +675,7 @@ const VideoHandler = {
                 SnapshotManager.currentImageIndex = 0;
                 document.getElementById('emptyState').hidden = true;
             }
+
         } else {
             // Handle video project
             this.video.hidden = false;
@@ -696,6 +718,8 @@ const VideoHandler = {
                 this.video.addEventListener('loadedmetadata', loadSnapshots, { once: true });
             }
         }
+
+        SnapshotManager.syncImageProjectExtras();
     },
 
     /**

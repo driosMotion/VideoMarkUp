@@ -700,7 +700,8 @@ body > .project-dropdown-menu {
     text-align: center;
 }
 
-.delete-all-btn {
+.delete-all-btn,
+.add-stills-btn {
     background: transparent;
     border: none;
     color: var(--text-muted);
@@ -715,9 +716,19 @@ body > .project-dropdown-menu {
     height: 28px;
 }
 
-.delete-all-btn svg {
+.delete-all-btn svg,
+.add-stills-btn svg {
     width: 16px;
     height: 16px;
+}
+
+.add-stills-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent-primary);
+}
+
+.add-stills-btn:active {
+    transform: scale(0.96);
 }
 
 .delete-all-btn:hover {

@@ -83,6 +83,15 @@
                         </svg>
                         New Project
                     </button>
+                    <button class="dropdown-item dropdown-item-new" id="mergeProjectsMenuBtn" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <circle cx="12" cy="18" r="3"></circle>
+                            <circle cx="6" cy="9" r="3"></circle>
+                            <circle cx="18" cy="9" r="3"></circle>
+                            <path d="M8.5 11.5L12 15l3.5-3.5"></path>
+                        </svg>
+                        Merge Projects
+                    </button>
                 </div>
             </div>
             <div class="video-metadata" id="videoMetadata" hidden>
@@ -232,6 +241,13 @@
                                 </svg>
                             </button>
                             <input type="file" id="referenceImageInputInline" accept="image/*" hidden>
+                            <button type="button" class="action-btn-inline" id="replaceStillAssetBtn" hidden data-tooltip="Replace the current still image. Clears markups on the image; tags and comment are kept.">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <rect x="3" y="6" width="18" height="14" rx="2" ry="2"></rect>
+                                    <path d="M12 14V4M9 8l3-4 3 4"></path>
+                                </svg>
+                            </button>
+                            <input type="file" id="replaceStillAssetInput" accept="image/*" hidden>
                             <button class="action-btn-inline" id="undoBtnInline" data-tooltip="Undo the last drawing action. Removes the most recently added object.">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M3 7v6h6"></path>
@@ -496,6 +512,13 @@
                 <h3>Snapshots</h3>
                 <div class="sidebar-header-right">
                     <span class="snapshot-count" id="snapshotCount">0</span>
+                    <input type="file" id="addStillsImagesInput" accept="image/*" multiple hidden aria-hidden="true">
+                    <button type="button" class="add-stills-btn" id="addStillsImagesBtn" hidden data-tooltip="Add still images from files">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
                     <button class="delete-all-btn" id="deleteAllSnapshotsBtn" data-tooltip="Delete all snapshots">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="3 6 5 6 21 6"></polyline>
@@ -850,6 +873,33 @@
                     <summary class="faq-q">How do I edit the available tags?</summary>
                     <div class="faq-a">Click <span class="faq-chip">Tags</span> in the top bar to open the tag manager.</div>
                 </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- Merge image projects (stills) -->
+    <div class="modal-overlay" id="mergeProjectsModal" hidden>
+        <div class="merge-projects-dialog">
+            <div class="modal-header">
+                <h3>Merge image projects</h3>
+                <button type="button" class="modal-close" id="mergeProjectsCloseBtn" aria-label="Close">&times;</button>
+            </div>
+            <div class="merge-projects-body">
+                <p class="merge-projects-help">
+                    Click projects below in the order you want their stills combined. Click again to remove from the list.
+                    <strong>A new project</strong> is created with copies of all stills; your original projects are <strong>not modified or deleted</strong>.
+                </p>
+                <div class="merge-projects-order-label">Merge order</div>
+                <div class="merge-projects-order-preview" id="mergeProjectsOrderPreview"></div>
+                <button type="button" class="btn btn-secondary merge-clear-order" id="mergeProjectsClearOrderBtn">Clear order</button>
+                <div class="merge-projects-pick-label">Stills projects</div>
+                <div class="merge-projects-pick-list" id="mergeProjectsPickList"></div>
+                <label class="merge-projects-name-label" for="mergeProjectsNameInput">New project name (optional)</label>
+                <input type="text" id="mergeProjectsNameInput" class="merge-projects-name-input" placeholder="Merged stills (auto)" autocomplete="off">
+            </div>
+            <div class="modal-actions merge-projects-actions">
+                <button type="button" class="btn btn-secondary" id="mergeProjectsCancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="mergeProjectsConfirmBtn" disabled>Merge</button>
             </div>
         </div>
     </div>

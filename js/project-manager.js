@@ -7,6 +7,10 @@ const ProjectManager = {
     isOpen: false,
     expandedFolders: new Set(), // Track which folders are expanded
     draggedProjectId: null, // Track currently dragged project
+    /** @type {number[]} Ordered project IDs selected for merge (image projects only) */
+    mergeProjectOrder: [],
+    /** @type {Record<number, { name: string }>} */
+    _mergeProjectMeta: {},
 
     /**
      * Initialize project manager
@@ -68,10 +72,26 @@ const ProjectManager = {
             });
         }
 
+        const mergeProjectsMenuBtn = document.getElementById('mergeProjectsMenuBtn');
+        if (mergeProjectsMenuBtn) {
+            mergeProjectsMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openMergeProjectsModal();
+            });
+        }
+        this.setupMergeProjectsModalListeners();
+
         // Close on Escape
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.isOpen) {
-                this.closeDropdown();
+            if (e.key === 'Escape') {
+                const mergeModal = document.getElementById('mergeProjectsModal');
+                if (mergeModal && !mergeModal.hidden) {
+                    this.hideMergeProjectsModal();
+                    return;
+                }
+                if (this.isOpen) {
+                    this.closeDropdown();
+                }
             }
         });
         
@@ -653,6 +673,10 @@ const ProjectManager = {
         
         // Reset current project
         VideoHandler.currentProjectId = null;
+        VideoHandler.isImageProject = false;
+        if (typeof SnapshotManager.syncImageProjectExtras === 'function') {
+            SnapshotManager.syncImageProjectExtras();
+        }
         
         this.closeDropdown();
     },
@@ -704,6 +728,192 @@ const ProjectManager = {
         // Refresh list
         this.loadProjectList();
         App.showToast('Project deleted', 'success');
+    },
+
+    /**
+     * Merge projects modal: wire buttons and overlay.
+     */
+    setupMergeProjectsModalListeners() {
+        const modal = document.getElementById('mergeProjectsModal');
+        const cancelBtn = document.getElementById('mergeProjectsCancelBtn');
+        const closeBtn = document.getElementById('mergeProjectsCloseBtn');
+        const confirmBtn = document.getElementById('mergeProjectsConfirmBtn');
+        const clearBtn = document.getElementById('mergeProjectsClearOrderBtn');
+
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideMergeProjectsModal();
+                }
+            });
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.hideMergeProjectsModal());
+        }
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.hideMergeProjectsModal());
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.mergeProjectOrder = [];
+                this.renderMergeProjectsUI();
+            });
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => this.confirmMergeProjects());
+        }
+    },
+
+    /**
+     * Open merge dialog (image / stills projects only in the picker).
+     */
+    async openMergeProjectsModal() {
+        this.closeDropdown();
+        this.mergeProjectOrder = [];
+        this._mergeProjectMeta = {};
+
+        const listEl = document.getElementById('mergeProjectsPickList');
+        const nameInput = document.getElementById('mergeProjectsNameInput');
+        const modal = document.getElementById('mergeProjectsModal');
+        if (!listEl || !modal) return;
+
+        if (nameInput) {
+            nameInput.value = '';
+        }
+
+        const all = await Storage.getAllProjects();
+        const imageProjects = all.filter((p) =>
+            Storage.isImageProjectRecord(p)
+        );
+
+        imageProjects.forEach((p) => {
+            this._mergeProjectMeta[p.id] = { name: p.name };
+        });
+
+        if (imageProjects.length === 0) {
+            listEl.innerHTML =
+                '<p class="merge-projects-empty">No image (stills) projects yet. Create a project from still images first.</p>';
+        } else {
+            listEl.innerHTML = '';
+            for (const p of imageProjects) {
+                const snaps = await Storage.getSnapshots(p.id);
+                const count = snaps.length;
+                const row = document.createElement('button');
+                row.type = 'button';
+                row.className = 'merge-project-row';
+                row.dataset.projectId = String(p.id);
+                row.innerHTML = `
+                    <span class="merge-order-badge" hidden></span>
+                    <span class="merge-project-row-name">${this.escapeHtml(p.name)}</span>
+                    <span class="merge-project-row-meta">${count} still${count !== 1 ? 's' : ''}</span>
+                `;
+                row.addEventListener('click', () =>
+                    this.toggleMergeProjectSelection(Number(p.id))
+                );
+                listEl.appendChild(row);
+            }
+        }
+
+        this.renderMergeProjectsUI();
+        modal.hidden = false;
+    },
+
+    hideMergeProjectsModal() {
+        const modal = document.getElementById('mergeProjectsModal');
+        if (modal) {
+            modal.hidden = true;
+        }
+        this.mergeProjectOrder = [];
+    },
+
+    /**
+     * Add or remove a project from the merge order (toggle).
+     * @param {number} projectId
+     */
+    toggleMergeProjectSelection(projectId) {
+        const idx = this.mergeProjectOrder.indexOf(projectId);
+        if (idx === -1) {
+            this.mergeProjectOrder.push(projectId);
+        } else {
+            this.mergeProjectOrder.splice(idx, 1);
+        }
+        this.renderMergeProjectsUI();
+    },
+
+    renderMergeProjectsUI() {
+        const preview = document.getElementById('mergeProjectsOrderPreview');
+        const confirmBtn = document.getElementById('mergeProjectsConfirmBtn');
+
+        document.querySelectorAll('.merge-project-row').forEach((row) => {
+            const id = Number(row.dataset.projectId);
+            const ord = this.mergeProjectOrder.indexOf(id);
+            row.classList.toggle('is-in-merge-order', ord !== -1);
+            const badge = row.querySelector('.merge-order-badge');
+            if (badge) {
+                if (ord === -1) {
+                    badge.hidden = true;
+                    badge.textContent = '';
+                } else {
+                    badge.hidden = false;
+                    badge.textContent = String(ord + 1);
+                }
+            }
+        });
+
+        if (preview) {
+            if (this.mergeProjectOrder.length === 0) {
+                preview.innerHTML =
+                    '<span class="merge-order-chip" style="opacity:0.6">No project selected yet.</span>';
+            } else {
+                preview.innerHTML = this.mergeProjectOrder
+                    .map((id, i) => {
+                        const meta = this._mergeProjectMeta[id];
+                        const label = meta
+                            ? meta.name
+                            : `Project ${id}`;
+                        return `<span class="merge-order-chip">${i + 1}. ${this.escapeHtml(label)}</span>`;
+                    })
+                    .join('');
+            }
+        }
+
+        if (confirmBtn) {
+            confirmBtn.disabled = this.mergeProjectOrder.length < 2;
+        }
+    },
+
+    /**
+     * Run merge and open the new project.
+     */
+    async confirmMergeProjects() {
+        if (this.mergeProjectOrder.length < 2) {
+            App.showToast('Select at least two projects to merge', 'warning');
+            return;
+        }
+
+        const nameInput = document.getElementById('mergeProjectsNameInput');
+        const customName = nameInput ? nameInput.value.trim() : '';
+
+        try {
+            App.showToast('Merging projects…', 'info');
+            const newId = await Storage.mergeImageProjects(
+                [...this.mergeProjectOrder],
+                customName
+            );
+            this.hideMergeProjectsModal();
+            await this.loadProjectList();
+            await VideoHandler.loadProject(newId);
+            App.showToast(
+                'Merged into a new project. Your original projects were not changed.',
+                'success'
+            );
+        } catch (err) {
+            console.error('Merge projects failed:', err);
+            App.showToast(
+                err.message || 'Could not merge projects',
+                'error'
+            );
+        }
     },
 
     /**
